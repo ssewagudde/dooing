@@ -2,7 +2,7 @@
 
 Dooing is a minimalist todo list manager for Neovim, designed with simplicity and efficiency in mind. It provides a clean, distraction-free interface to manage your tasks directly within Neovim. Perfect for users who want to keep track of their todos without leaving their editor.
 
-[ADD GIF HERE]
+![dooing_demo](https://github.com/user-attachments/assets/28936d67-b4d5-44b9-aa22-99138b7db762)
 
 ## 🚀 Features
 
