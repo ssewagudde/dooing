@@ -39,6 +39,26 @@ function M.toggle_todo(index)
 	end
 end
 
+function M.get_all_tags()
+	local tags = {}
+	local seen = {}
+	for _, todo in ipairs(M.todos) do
+		local todo_tags = {}
+		for tag in todo.text:gmatch("#(%w+)") do
+			if not seen[tag] then
+				seen[tag] = true
+				table.insert(tags, tag)
+			end
+		end
+	end
+	table.sort(tags)
+	return tags
+end
+
+function M.set_filter(tag)
+	M.active_filter = tag
+end
+
 function M.delete_todo(index)
 	if M.todos[index] then
 		table.remove(M.todos, index)

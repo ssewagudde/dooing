@@ -107,13 +107,13 @@ Planned features and improvements for future versions of Dooing:
 
 - [ ] Due Dates Support
 - [ ] Priority Levels
-- [ ] Todo Filtering by Tags
+- [x] Todo Filtering by Tags
 - [ ] Todo Search
 - [ ] Todo List Per Project
 
 #### UI Enhancements
 
-- [ ] Tag Highlighting
+- [x] Tag Highlighting
 - [ ] Custom Todo Colors
 - [ ] Todo Categories View
 
