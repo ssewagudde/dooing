@@ -27,6 +27,7 @@ M.defaults = {
 		toggle_help = "?",
 		toggle_tags = "t",
 		clear_filter = "c",
+		edit_todo = "e",
 	},
 }
 

@@ -31,7 +31,7 @@ local function create_help_window()
 	help_buf_id = vim.api.nvim_create_buf(false, true)
 
 	local width = 40
-	local height = 10
+	local height = 15
 	local ui = vim.api.nvim_list_uis()[1]
 	local col = math.floor((ui.width - width) / 2) + width + 2
 	local row = math.floor((ui.height - height) / 2)
@@ -59,6 +59,7 @@ local function create_help_window()
 		" ?     - Toggle this help window",
 		" q     - Close window",
 		" t     - Toggle tags window",
+		" e     - Edit to-do item",
 		" ",
 	}
 
@@ -151,6 +152,36 @@ local function create_tag_window()
 	end, { buffer = tag_buf_id })
 end
 
+local function edit_todo()
+	local cursor = vim.api.nvim_win_get_cursor(win_id)
+	local todo_index = cursor[1] - 1
+	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
+
+	if line_content:match("^%s+[○✓]") then
+		if state.active_filter then
+			local visible_index = 0
+			for i, todo in ipairs(state.todos) do
+				if todo.text:match("#" .. state.active_filter) then
+					visible_index = visible_index + 1
+					if visible_index == todo_index - 2 then
+						todo_index = i
+						break
+					end
+				end
+			end
+		end
+
+		-- Prompt user for the new text
+		vim.ui.input({ prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
+			if input and input ~= "" then
+				state.todos[todo_index].text = input
+				state.save_todos()
+				M.render_todos()
+			end
+		end)
+	end
+end
+
 local function create_window()
 	local ui = vim.api.nvim_list_uis()[1]
 	local width = 40
@@ -170,7 +201,7 @@ local function create_window()
 		border = "rounded",
 		title = " to-dos ",
 		title_pos = "center",
-		footer = " Press ? for help ",
+		footer = " [?] for help ",
 		footer_pos = "center",
 	})
 
@@ -189,6 +220,7 @@ local function create_window()
 	vim.keymap.set("n", config.options.keymaps.close_window, M.close_window, { buffer = buf_id })
 	vim.keymap.set("n", config.options.keymaps.toggle_help, create_help_window, { buffer = buf_id, nowait = true })
 	vim.keymap.set("n", config.options.keymaps.toggle_tags, create_tag_window, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.edit_todo, edit_todo, { buffer = buf_id })
 	vim.keymap.set("n", config.options.keymaps.clear_filter, function()
 		state.set_filter(nil)
 		M.render_todos()
@@ -278,6 +310,34 @@ function M.new_todo()
 		if input and input ~= "" then
 			state.add_todo(input)
 			M.render_todos()
+
+			-- Find either the first completed todo or the last uncompleted todo
+			local total_lines = vim.api.nvim_buf_line_count(buf_id)
+			local target_line = nil
+			local last_uncompleted_line = nil
+
+			for i = 1, total_lines do
+				local line = vim.api.nvim_buf_get_lines(buf_id, i - 1, i, false)[1]
+				-- Track the last uncompleted todo
+				if line:match("^%s+[○]") then
+					last_uncompleted_line = i
+				end
+				-- Look for the first completed todo
+				if line:match("^%s+[✓].*~") then
+					target_line = i - 1 -- Position cursor one line above the completed todo
+					break
+				end
+			end
+
+			-- If no completed todos found, use the last uncompleted todo line
+			if not target_line and last_uncompleted_line then
+				target_line = last_uncompleted_line
+			end
+
+			-- If we found a valid line, move cursor there
+			if target_line then
+				vim.api.nvim_win_set_cursor(win_id, { target_line, 0 })
+			end
 		end
 	end)
 end
