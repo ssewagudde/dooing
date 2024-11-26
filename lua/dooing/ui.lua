@@ -165,8 +165,8 @@ create_help_window = function()
 		end
 	end
 
-	vim.keymap.set("n", "q", close_help, { buffer = help_buf_id })
-	vim.keymap.set("n", "?", close_help, { buffer = help_buf_id })
+	vim.keymap.set("n", config.options.keymaps.close_window, close_help, { buffer = help_buf_id, nowait = true })
+	vim.keymap.set("n", config.options.keymaps.toggle_help, close_help, { buffer = buf_id, nowait = true })
 end
 
 -- Creates and manages the tags window
@@ -255,14 +255,14 @@ local function create_window()
 	vim.api.nvim_win_set_option(win_id, "breakindentopt", "shift:2")
 	vim.api.nvim_win_set_option(win_id, "showbreak", " ")
 
-	vim.keymap.set("n", config.options.keymaps.new_todo, M.new_todo, { buffer = buf_id })
-	vim.keymap.set("n", config.options.keymaps.toggle_todo, M.toggle_todo, { buffer = buf_id })
-	vim.keymap.set("n", config.options.keymaps.delete_todo, M.delete_todo, { buffer = buf_id })
-	vim.keymap.set("n", config.options.keymaps.delete_completed, M.delete_completed, { buffer = buf_id })
-	vim.keymap.set("n", config.options.keymaps.close_window, M.close_window, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.new_todo, M.new_todo, { buffer = buf_id, nowait = true })
+	vim.keymap.set("n", config.options.keymaps.toggle_todo, M.toggle_todo, { buffer = buf_id, nowait = true })
+	vim.keymap.set("n", config.options.keymaps.delete_todo, M.delete_todo, { buffer = buf_id, nowait = true })
+	vim.keymap.set("n", config.options.keymaps.delete_completed, M.delete_completed, { buffer = buf_id, nowait = true })
+	vim.keymap.set("n", config.options.keymaps.close_window, M.close_window, { buffer = buf_id, nowait = true })
 	vim.keymap.set("n", config.options.keymaps.toggle_help, create_help_window, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.toggle_tags, create_tag_window, { buffer = buf_id })
-	vim.keymap.set("n", config.options.keymaps.edit_todo, edit_todo, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.toggle_tags, create_tag_window, { buffer = buf_id, nowait = true })
+	vim.keymap.set("n", config.options.keymaps.edit_todo, edit_todo, { buffer = buf_id, nowait = true })
 	vim.keymap.set("n", config.options.keymaps.clear_filter, function()
 		state.set_filter(nil)
 		M.render_todos()
