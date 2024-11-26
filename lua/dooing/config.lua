@@ -17,6 +17,17 @@ M.defaults = {
 		done = "✓",
 	},
 	save_path = vim.fn.stdpath("data") .. "/dooing_todos.json",
+	keymaps = {
+		toggle_window = "<leader>td",
+		new_todo = "i",
+		toggle_todo = "x",
+		delete_todo = "d",
+		delete_completed = "D",
+		close_window = "q",
+		toggle_help = "?",
+		toggle_tags = "t",
+		clear_filter = "c",
+	},
 }
 
 M.options = {}

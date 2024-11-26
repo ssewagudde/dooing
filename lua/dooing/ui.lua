@@ -1,5 +1,6 @@
 local M = {}
 local state = require("dooing.state")
+local config = require("dooing.config")
 
 local win_id = nil
 local buf_id = nil
@@ -27,20 +28,20 @@ local function create_help_window()
 		return
 	end
 
-	-- Create help buffer
 	help_buf_id = vim.api.nvim_create_buf(false, true)
 
 	local width = 40
+	local height = 10
 	local ui = vim.api.nvim_list_uis()[1]
-	local col = ui.width - width - 2
+	local col = math.floor((ui.width - width) / 2) + width + 2
+	local row = math.floor((ui.height - height) / 2)
 
-	-- Position help window above main window
 	help_win_id = vim.api.nvim_open_win(help_buf_id, false, {
 		relative = "editor",
-		row = 1,
+		row = row,
 		col = col,
 		width = width,
-		height = 10,
+		height = height,
 		style = "minimal",
 		border = "rounded",
 		title = " help ",
@@ -104,15 +105,19 @@ local function create_tag_window()
 	tag_buf_id = vim.api.nvim_create_buf(false, true)
 
 	local width = 30
+	local height = 10
 	local ui = vim.api.nvim_list_uis()[1]
-	local col = ui.width - width - 44 -- Position to the left of main window
+	local main_width = 40
+	local main_col = math.floor((ui.width - main_width) / 2)
+	local col = main_col - width - 2
+	local row = math.floor((ui.height - height) / 2)
 
 	tag_win_id = vim.api.nvim_open_win(tag_buf_id, true, {
 		relative = "editor",
-		row = 13,
+		row = row,
 		col = col,
 		width = width,
-		height = 10,
+		height = height,
 		style = "minimal",
 		border = "rounded",
 		title = " tags ",
@@ -147,17 +152,17 @@ local function create_tag_window()
 end
 
 local function create_window()
+	local ui = vim.api.nvim_list_uis()[1]
 	local width = 40
 	local height = 20
-
-	local ui = vim.api.nvim_list_uis()[1]
-	local col = ui.width - width - 2
+	local col = math.floor((ui.width - width) / 2)
+	local row = math.floor((ui.height - height) / 2)
 
 	buf_id = vim.api.nvim_create_buf(false, true)
 
 	win_id = vim.api.nvim_open_win(buf_id, true, {
 		relative = "editor",
-		row = 13,
+		row = row,
 		col = col,
 		width = width,
 		height = height,
@@ -177,14 +182,14 @@ local function create_window()
 	vim.api.nvim_win_set_option(win_id, "showbreak", " ")
 
 	-- Set buffer keymaps
-	vim.keymap.set("n", "i", M.new_todo, { buffer = buf_id })
-	vim.keymap.set("n", "x", M.toggle_todo, { buffer = buf_id })
-	vim.keymap.set("n", "q", M.close_window, { buffer = buf_id })
-	vim.keymap.set("n", "d", M.delete_todo, { buffer = buf_id })
-	vim.keymap.set("n", "D", M.delete_completed, { buffer = buf_id })
-	vim.keymap.set("n", "?", create_help_window, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", "t", create_tag_window, { buffer = buf_id })
-	vim.keymap.set("n", "c", function()
+	vim.keymap.set("n", config.options.keymaps.new_todo, M.new_todo, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.toggle_todo, M.toggle_todo, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.delete_todo, M.delete_todo, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.delete_completed, M.delete_completed, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.close_window, M.close_window, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.toggle_help, create_help_window, { buffer = buf_id, nowait = true })
+	vim.keymap.set("n", config.options.keymaps.toggle_tags, create_tag_window, { buffer = buf_id })
+	vim.keymap.set("n", config.options.keymaps.clear_filter, function()
 		state.set_filter(nil)
 		M.render_todos()
 	end, { buffer = buf_id, desc = "Clear filter" })
