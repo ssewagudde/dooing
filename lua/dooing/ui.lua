@@ -1,26 +1,99 @@
+---@diagnostic disable: undefined-global, param-type-mismatch
+-- Explicitly declare vim as a global variable
+local vim = vim
+
+-- UI Module for Dooing Plugin
+-- Handles window creation, rendering and UI interactions for todo management
+
+---@class DoingUI
+---@field toggle_todo_window function
+---@field render_todos function
+---@field close_window function
+---@field new_todo function
+---@field toggle_todo function
+---@field delete_todo function
+---@field delete_completed function
 local M = {}
+
+--------------------------------------------------
+-- Dependencies
+--------------------------------------------------
 local state = require("dooing.state")
 local config = require("dooing.config")
 
-local win_id = nil
-local buf_id = nil
-local help_win_id = nil
-local help_buf_id = nil
+--------------------------------------------------
+-- Local Variables
+--------------------------------------------------
+-- Namespace for highlighting
 local ns_id = vim.api.nvim_create_namespace("dooing")
 
+-- Window and buffer IDs
+---@type integer|nil
+local win_id = nil
+---@type integer|nil
+local buf_id = nil
+---@type integer|nil
+local help_win_id = nil
+---@type integer|nil
+local help_buf_id = nil
+---@type integer|nil
 local tag_win_id = nil
+---@type integer|nil
 local tag_buf_id = nil
 
-vim.api.nvim_exec(
-	[[
-  highlight default link DooingPending Question
-  highlight default link DooingDone Comment
-  highlight default link DooingHelpText Directory
-]],
-	false
-)
+-- Forward declare local functions that are used in keymaps
+local create_help_window
+local create_tag_window
+local edit_todo
 
-local function create_help_window()
+--------------------------------------------------
+-- Highlights Setup
+--------------------------------------------------
+-- Set up highlights
+vim.api.nvim_set_hl(0, "DooingPending", { link = "Question", default = true })
+vim.api.nvim_set_hl(0, "DooingDone", { link = "Comment", default = true })
+vim.api.nvim_set_hl(0, "DooingHelpText", { link = "Directory", default = true })
+
+--------------------------------------------------
+-- Todo Management Functions
+--------------------------------------------------
+
+-- Handles editing of existing todos
+edit_todo = function()
+	local cursor = vim.api.nvim_win_get_cursor(win_id)
+	local todo_index = cursor[1] - 1
+	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
+
+	if line_content:match("^%s+[○✓]") then
+		if state.active_filter then
+			local visible_index = 0
+			for i, todo in ipairs(state.todos) do
+				if todo.text:match("#" .. state.active_filter) then
+					visible_index = visible_index + 1
+					if visible_index == todo_index - 2 then
+						todo_index = i
+						break
+					end
+				end
+			end
+		end
+
+		vim.ui.input({ prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
+			if input and input ~= "" then
+				state.todos[todo_index].text = input
+				state.save_todos()
+				M.render_todos()
+			end
+		end)
+	end
+end
+
+--------------------------------------------------
+-- Core Window Management
+--------------------------------------------------
+
+-- Creates and manages the help window
+create_help_window = function()
 	if help_win_id and vim.api.nvim_win_is_valid(help_win_id) then
 		vim.api.nvim_win_close(help_win_id, true)
 		help_win_id = nil
@@ -60,6 +133,7 @@ local function create_help_window()
 		" q     - Close window",
 		" t     - Toggle tags window",
 		" e     - Edit to-do item",
+		" c     - Clear active tag filter",
 		" ",
 	}
 
@@ -95,7 +169,8 @@ local function create_help_window()
 	vim.keymap.set("n", "?", close_help, { buffer = help_buf_id })
 end
 
-local function create_tag_window()
+-- Creates and manages the tags window
+create_tag_window = function()
 	if tag_win_id and vim.api.nvim_win_is_valid(tag_win_id) then
 		vim.api.nvim_win_close(tag_win_id, true)
 		tag_win_id = nil
@@ -131,7 +206,6 @@ local function create_tag_window()
 	end
 	vim.api.nvim_buf_set_lines(tag_buf_id, 0, -1, false, tags)
 
-	-- Handle tag selection
 	vim.keymap.set("n", "<CR>", function()
 		local cursor = vim.api.nvim_win_get_cursor(tag_win_id)
 		local tag = vim.api.nvim_buf_get_lines(tag_buf_id, cursor[1] - 1, cursor[1], false)[1]
@@ -144,7 +218,6 @@ local function create_tag_window()
 		end
 	end, { buffer = tag_buf_id })
 
-	-- Close with q
 	vim.keymap.set("n", "q", function()
 		vim.api.nvim_win_close(tag_win_id, true)
 		tag_win_id = nil
@@ -152,36 +225,7 @@ local function create_tag_window()
 	end, { buffer = tag_buf_id })
 end
 
-local function edit_todo()
-	local cursor = vim.api.nvim_win_get_cursor(win_id)
-	local todo_index = cursor[1] - 1
-	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
-
-	if line_content:match("^%s+[○✓]") then
-		if state.active_filter then
-			local visible_index = 0
-			for i, todo in ipairs(state.todos) do
-				if todo.text:match("#" .. state.active_filter) then
-					visible_index = visible_index + 1
-					if visible_index == todo_index - 2 then
-						todo_index = i
-						break
-					end
-				end
-			end
-		end
-
-		-- Prompt user for the new text
-		vim.ui.input({ prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
-			if input and input ~= "" then
-				state.todos[todo_index].text = input
-				state.save_todos()
-				M.render_todos()
-			end
-		end)
-	end
-end
-
+-- Creates and configures the main todo window
 local function create_window()
 	local ui = vim.api.nvim_list_uis()[1]
 	local width = 40
@@ -205,14 +249,12 @@ local function create_window()
 		footer_pos = "center",
 	})
 
-	-- Set window options
 	vim.api.nvim_win_set_option(win_id, "wrap", true)
 	vim.api.nvim_win_set_option(win_id, "linebreak", true)
 	vim.api.nvim_win_set_option(win_id, "breakindent", true)
 	vim.api.nvim_win_set_option(win_id, "breakindentopt", "shift:2")
 	vim.api.nvim_win_set_option(win_id, "showbreak", " ")
 
-	-- Set buffer keymaps
 	vim.keymap.set("n", config.options.keymaps.new_todo, M.new_todo, { buffer = buf_id })
 	vim.keymap.set("n", config.options.keymaps.toggle_todo, M.toggle_todo, { buffer = buf_id })
 	vim.keymap.set("n", config.options.keymaps.delete_todo, M.delete_todo, { buffer = buf_id })
@@ -227,6 +269,10 @@ local function create_window()
 	end, { buffer = buf_id, desc = "Clear filter" })
 end
 
+-- Public Interface
+--------------------------------------------------
+
+-- Renders the todo list in the main window
 function M.render_todos()
 	if not buf_id then
 		return
@@ -282,6 +328,7 @@ function M.render_todos()
 	vim.api.nvim_buf_set_option(buf_id, "modifiable", false)
 end
 
+-- Toggles the main todo window visibility
 function M.toggle_todo_window()
 	if win_id and vim.api.nvim_win_is_valid(win_id) then
 		M.close_window()
@@ -291,6 +338,7 @@ function M.toggle_todo_window()
 	end
 end
 
+-- Closes all plugin windows
 function M.close_window()
 	if help_win_id and vim.api.nvim_win_is_valid(help_win_id) then
 		vim.api.nvim_win_close(help_win_id, true)
@@ -305,6 +353,7 @@ function M.close_window()
 	end
 end
 
+-- Creates a new todo item
 function M.new_todo()
 	vim.ui.input({ prompt = "New to-do: " }, function(input)
 		if input and input ~= "" then
@@ -342,6 +391,7 @@ function M.new_todo()
 	end)
 end
 
+-- Toggles the completion status of the current todo
 function M.toggle_todo()
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
 	local todo_index = cursor[1] - 1
@@ -366,6 +416,7 @@ function M.toggle_todo()
 	end
 end
 
+-- Deletes the current todo item
 function M.delete_todo()
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
 	local todo_index = cursor[1] - 1
@@ -390,6 +441,7 @@ function M.delete_todo()
 	end
 end
 
+-- Deletes all completed todos
 function M.delete_completed()
 	state.delete_completed()
 	M.render_todos()

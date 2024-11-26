@@ -1,3 +1,6 @@
+-- Declare vim locally at the top
+local vim = vim
+
 local M = {}
 local config = require("dooing.config")
 
@@ -10,6 +13,9 @@ local function save_todos()
 		file:close()
 	end
 end
+
+-- Expose it as part of the module
+M.save_todos = save_todos
 
 function M.load_todos()
 	local file = io.open(config.options.save_path, "r")
@@ -43,7 +49,7 @@ function M.get_all_tags()
 	local tags = {}
 	local seen = {}
 	for _, todo in ipairs(M.todos) do
-		local todo_tags = {}
+		-- Remove unused todo_tags variable
 		for tag in todo.text:gmatch("#(%w+)") do
 			if not seen[tag] then
 				seen[tag] = true

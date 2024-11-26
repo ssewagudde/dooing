@@ -74,6 +74,7 @@ Dooing comes with sensible defaults that you can override:
         toggle_help = "?",           -- Toggle help window
         toggle_tags = "t",           -- Toggle tags window
         clear_filter = "c",          -- Clear active tag filter
+        edit_todo = "e",             -- Edit todo item
     },
 }
 ```
@@ -93,6 +94,9 @@ Dooing comes with intuitive keybindings:
 | `D`          | Delete all completed todos      |
 | `q`          | Close the todo list window      |
 | `?`          | Toggle help window      |
+| `t`          | Toggle tags window      |
+| `c`          | Clear active tag filter      |
+| `e`          | Edit todo item     |
 
 ---
 
@@ -106,6 +110,9 @@ Dooing comes with intuitive keybindings:
 6. Press `D` to clear all completed todos
 7. Press `q` to close the window
 8. Press `?` to toggle help window
+8. Press `t` to toggle tags window
+8. Press `c` to clear active tag filter
+8. Press `e` to Edit todo item
 
 ---
 
