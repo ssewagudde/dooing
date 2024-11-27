@@ -28,7 +28,7 @@ function M.load_todos()
 	end
 end
 
-function M.add_todo(text)
+function M.add_todo(text, priority_index)
 	table.insert(M.todos, {
 		text = text,
 		done = false,
@@ -90,6 +90,24 @@ function M.sort_todos()
 		end
 		return a.created_at < b.created_at
 	end)
+end
+
+function M.rename_tag(old_tag, new_tag)
+	for _, todo in ipairs(M.todos) do
+		todo.text = todo.text:gsub("#" .. old_tag, "#" .. new_tag)
+	end
+	save_todos()
+end
+
+function M.delete_tag(tag)
+	local remaining_todos = {}
+	for _, todo in ipairs(M.todos) do
+		todo.text = todo.text:gsub("#" .. tag .. "(%s)", "%1")
+		todo.text = todo.text:gsub("#" .. tag .. "$", "")
+		table.insert(remaining_todos, todo)
+	end
+	M.todos = remaining_todos
+	save_todos()
 end
 
 return M

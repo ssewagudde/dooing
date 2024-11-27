@@ -75,6 +75,8 @@ Dooing comes with sensible defaults that you can override:
         toggle_tags = "t",           -- Toggle tags window
         clear_filter = "c",          -- Clear active tag filter
         edit_todo = "e",             -- Edit todo item
+        edit_tag = "e",              -- Edit tag [on tag window]
+        delete_tag = "d",            -- Delete tag [on tag window]
     },
 }
 ```
@@ -85,18 +87,27 @@ Dooing comes with sensible defaults that you can override:
 
 Dooing comes with intuitive keybindings:
 
-| Key           | Action                          |
-|--------------|----------------------------------|
-| `<leader>td` | Toggle the todo list window     |
-| `i`          | Add a new todo                  |
-| `x`          | Toggle todo status              |
-| `d`          | Delete current todo             |
-| `D`          | Delete all completed todos      |
-| `q`          | Close the todo list window      |
-| `?`          | Toggle help window      |
-| `t`          | Toggle tags window      |
-| `c`          | Clear active tag filter      |
-| `e`          | Edit todo item     |
+#### Main Window
+| Key           | Action                      |
+|--------------|----------------------------|
+| `<leader>td` | Toggle todo window         |
+| `i`          | Add new todo               |
+| `x`          | Toggle todo status         |
+| `d`          | Delete current todo        |
+| `D`          | Delete all completed todos |
+| `q`          | Close window               |
+| `?`          | Toggle help window         |
+| `t`          | Toggle tags window         |
+| `c`          | Clear active tag filter    |
+| `e`          | Edit todo                  |
+
+#### Tags Window
+| Key    | Action        |
+|--------|--------------|
+| `e`    | Edit tag     |
+| `d`    | Delete tag   |
+| `<CR>` | Filter by tag|
+| `q`    | Close window |
 
 ---
 

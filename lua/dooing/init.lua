@@ -18,10 +18,12 @@ function M.setup(opts)
 		nargs = "?",
 	})
 
-	-- Set up keymaps
-	vim.keymap.set("n", "<leader>td", function()
-		ui.toggle_todo_window()
-	end, { desc = "Toggle Todo List" })
+	-- Only set up keymap if it's enabled in config
+	if config.options.keymaps.toggle_window then
+		vim.keymap.set("n", config.options.keymaps.toggle_window, function()
+			ui.toggle_todo_window()
+		end, { desc = "Toggle Todo List" })
+	end
 end
 
 return M

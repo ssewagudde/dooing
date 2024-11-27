@@ -28,6 +28,8 @@ M.defaults = {
 		toggle_tags = "t",
 		clear_filter = "c",
 		edit_todo = "e",
+		edit_tag = "e",
+		delete_tag = "d",
 	},
 }
 

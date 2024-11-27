@@ -78,7 +78,7 @@ edit_todo = function()
 			end
 		end
 
-		vim.ui.input({ prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
+		vim.ui.input({ zindex = 300, prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
 			if input and input ~= "" then
 				state.todos[todo_index].text = input
 				state.save_todos()
@@ -104,7 +104,7 @@ create_help_window = function()
 	help_buf_id = vim.api.nvim_create_buf(false, true)
 
 	local width = 40
-	local height = 15
+	local height = 20
 	local ui = vim.api.nvim_list_uis()[1]
 	local col = math.floor((ui.width - width) / 2) + width + 2
 	local row = math.floor((ui.height - height) / 2)
@@ -119,12 +119,13 @@ create_help_window = function()
 		border = "rounded",
 		title = " help ",
 		title_pos = "center",
-		zindex = 200,
+		zindex = 100,
 	})
 
 	local help_content = {
 		" Keybindings:",
 		" ",
+		" Main window:",
 		" i     - Add new to-do",
 		" x     - Toggle to-do status",
 		" d     - Delete current to-do",
@@ -134,6 +135,12 @@ create_help_window = function()
 		" t     - Toggle tags window",
 		" e     - Edit to-do item",
 		" c     - Clear active tag filter",
+		" ",
+		" Tags window:",
+		" e     - Edit tag",
+		" d     - Delete tag",
+		" <CR>  - Filter by tag",
+		" q     - Close window",
 		" ",
 	}
 
@@ -204,7 +211,10 @@ create_tag_window = function()
 	if #tags == 0 then
 		tags = { "No tags found" }
 	end
+
 	vim.api.nvim_buf_set_lines(tag_buf_id, 0, -1, false, tags)
+
+	vim.api.nvim_buf_set_option(tag_buf_id, "modifiable", true)
 
 	vim.keymap.set("n", "<CR>", function()
 		local cursor = vim.api.nvim_win_get_cursor(tag_win_id)
@@ -218,10 +228,40 @@ create_tag_window = function()
 		end
 	end, { buffer = tag_buf_id })
 
+	vim.keymap.set("n", config.options.keymaps.edit_tag, function()
+		local cursor = vim.api.nvim_win_get_cursor(tag_win_id)
+		local old_tag = vim.api.nvim_buf_get_lines(tag_buf_id, cursor[1] - 1, cursor[1], false)[1]
+		if old_tag ~= "No tags found" then
+			vim.ui.input({ prompt = "Edit tag: ", default = old_tag }, function(new_tag)
+				if new_tag and new_tag ~= "" and new_tag ~= old_tag then
+					state.rename_tag(old_tag, new_tag)
+					local tags = state.get_all_tags()
+					vim.api.nvim_buf_set_lines(tag_buf_id, 0, -1, false, tags)
+					M.render_todos()
+				end
+			end)
+		end
+	end, { buffer = tag_buf_id })
+
+	vim.keymap.set("n", config.options.keymaps.delete_tag, function()
+		local cursor = vim.api.nvim_win_get_cursor(tag_win_id)
+		local tag = vim.api.nvim_buf_get_lines(tag_buf_id, cursor[1] - 1, cursor[1], false)[1]
+		if tag ~= "No tags found" then
+			state.delete_tag(tag)
+			local tags = state.get_all_tags()
+			if #tags == 0 then
+				tags = { "No tags found" }
+			end
+			vim.api.nvim_buf_set_lines(tag_buf_id, 0, -1, false, tags)
+			M.render_todos()
+		end
+	end, { buffer = tag_buf_id })
+
 	vim.keymap.set("n", "q", function()
 		vim.api.nvim_win_close(tag_win_id, true)
 		tag_win_id = nil
 		tag_buf_id = nil
+		vim.api.nvim_set_current_win(win_id)
 	end, { buffer = tag_buf_id })
 end
 
@@ -232,6 +272,12 @@ local function create_window()
 	local height = 20
 	local col = math.floor((ui.width - width) / 2)
 	local row = math.floor((ui.height - height) / 2)
+
+	local function set_conditional_keymap(key_option, callback, opts)
+		if config.options.keymaps[key_option] then
+			vim.keymap.set("n", config.options.keymaps[key_option], callback, opts)
+		end
+	end
 
 	buf_id = vim.api.nvim_create_buf(false, true)
 
@@ -255,15 +301,15 @@ local function create_window()
 	vim.api.nvim_win_set_option(win_id, "breakindentopt", "shift:2")
 	vim.api.nvim_win_set_option(win_id, "showbreak", " ")
 
-	vim.keymap.set("n", config.options.keymaps.new_todo, M.new_todo, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.toggle_todo, M.toggle_todo, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.delete_todo, M.delete_todo, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.delete_completed, M.delete_completed, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.close_window, M.close_window, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.toggle_help, create_help_window, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.toggle_tags, create_tag_window, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.edit_todo, edit_todo, { buffer = buf_id, nowait = true })
-	vim.keymap.set("n", config.options.keymaps.clear_filter, function()
+	set_conditional_keymap("new_todo", M.new_todo, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("toggle_todo", M.toggle_todo, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("delete_todo", M.delete_todo, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("delete_completed", M.delete_completed, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("close_window", M.close_window, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("toggle_help", create_help_window, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("toggle_tags", create_tag_window, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("edit_todo", edit_todo, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("clear_filter", function()
 		state.set_filter(nil)
 		M.render_todos()
 	end, { buffer = buf_id, desc = "Clear filter" })
