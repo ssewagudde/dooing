@@ -77,6 +77,7 @@ Dooing comes with sensible defaults that you can override:
         edit_todo = "e",             -- Edit todo item
         edit_tag = "e",              -- Edit tag [on tag window]
         delete_tag = "d",            -- Delete tag [on tag window]
+        search_todo = "/",           -- Toggle todo searching
     },
 }
 ```
@@ -100,6 +101,7 @@ Dooing comes with intuitive keybindings:
 | `t`          | Toggle tags window         |
 | `c`          | Clear active tag filter    |
 | `e`          | Edit todo                  |
+| `/`          | Toggle todo searching                  |
 
 #### Tags Window
 | Key    | Action        |
@@ -136,7 +138,7 @@ Planned features and improvements for future versions of Dooing:
 - [ ] Due Dates Support
 - [ ] Priority Levels
 - [x] Todo Filtering by Tags
-- [ ] Todo Search
+- [x] Todo Search
 - [ ] Todo List Per Project
 
 #### UI Enhancements
