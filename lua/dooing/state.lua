@@ -4,7 +4,18 @@ local vim = vim
 local M = {}
 local config = require("dooing.config")
 
+-- Cache frequently accessed values
+local priority_weights = {}
+
 M.todos = {}
+
+-- Update priority weights cache when config changes
+local function update_priority_weights()
+	priority_weights = {}
+	for _, p in ipairs(config.options.priorities) do
+		priority_weights[p.name] = p.weight or 1
+	end
+end
 
 local function save_todos()
 	local file = io.open(config.options.save_path, "w")
@@ -18,6 +29,7 @@ end
 M.save_todos = save_todos
 
 function M.load_todos()
+	update_priority_weights()
 	local file = io.open(config.options.save_path, "r")
 	if file then
 		local content = file:read("*all")
@@ -28,12 +40,13 @@ function M.load_todos()
 	end
 end
 
-function M.add_todo(text, priority_index)
+function M.add_todo(text, priority_names)
 	table.insert(M.todos, {
 		text = text,
 		done = false,
 		category = text:match("#(%w+)") or "",
 		created_at = os.time(),
+		priority = priority_names,
 	})
 	save_todos()
 end
@@ -150,11 +163,37 @@ function M.delete_completed()
 	save_todos()
 end
 
+-- Calculate priority score for a todo item
+function M.get_priority_score(todo)
+	if not todo.priority or not config.options.prioritization or todo.done then
+		return 0
+	end
+
+	local score = 0
+	for _, priority_name in ipairs(todo.priority) do
+		score = score + (priority_weights[priority_name] or 0)
+	end
+	return score
+end
+
 function M.sort_todos()
 	table.sort(M.todos, function(a, b)
-		if a.done ~= b.done then
-			return not a.done
+		-- If prioritization is enabled, sort by priority first
+		if config.options.prioritization then
+			local a_score = M.get_priority_score(a)
+			local b_score = M.get_priority_score(b)
+
+			if a_score ~= b_score then
+				return a_score > b_score -- Higher score = higher priority
+			end
 		end
+
+		-- Then sort by completion status
+		if a.done ~= b.done then
+			return not a.done -- Undone items come first
+		end
+
+		-- Finally sort by creation time
 		return a.created_at < b.created_at
 	end)
 end

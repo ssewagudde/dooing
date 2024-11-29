@@ -80,6 +80,38 @@ Dooing comes with sensible defaults that you can override:
         search_todo = "/",           -- Toggle todo searching
     },
 
+    prioritization = false,
+	priorities = {                   -- Defines priorities one can assign to tasks
+		{
+			name = "important",
+			weight = 4,              -- Weight of each priority. E.g. here, `important` is ranked higher than `urgent`.
+		},
+		{
+			name = "urgent",
+			weight = 2,
+		},
+	},
+	priority_thresholds = {
+		{
+			min = 5, -- Corresponds to `urgent` and `important` tasks
+			max = 999,
+			color = nil,
+			hl_group = "DiagnosticError",
+		},
+		{
+			min = 3, -- Corresponds to `important` tasks
+			max = 4,
+			color = nil,
+			hl_group = "DiagnosticWarn",
+		},
+		{
+			min = 1, -- Corresponds to `urgent tasks`
+			max = 2,
+			color = nil,
+			hl_group = "DiagnosticInfo",
+		},
+	},
+
     -- Calendar settings
     calendar = {
         language = "en",             -- Calendar language ("en" or "pt")
@@ -92,11 +124,21 @@ Dooing comes with sensible defaults that you can override:
             next_month = "L",        -- Move to next month
             select_day = "<CR>",     -- Select the current day
             close_calendar = "q",    -- Close the calendar
-        }
-    }
+        },
+    },
 }
 ```
+
+## Commands
+
+Dooing can be controlled through user commands:
+
+- `:Dooing` opens the main window,
+- `:Dooing add Your Simple Task`, adds a task.
+- `:Dooing -p important,urgent Your Important and Urgent task`, assigns priority to it.
+
 ---
+
 ## 🔑 Keybindings
 
 Dooing comes with intuitive keybindings:
@@ -147,7 +189,7 @@ Planned features and improvements for future versions of Dooing:
 #### Core Features
 
 - [x] Due Dates Support
-- [ ] Priority Levels
+- [x] Priority Levels
 - [x] Todo Filtering by Tags
 - [x] Todo Search
 - [ ] Todo List Per Project
