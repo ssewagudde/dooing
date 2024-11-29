@@ -167,8 +167,6 @@ create_help_window = function()
 	})
 
 	local help_content = {
-		" Keybindings:",
-		" ",
 		" Main window:",
 		" i     - Add new to-do",
 		" x     - Toggle to-do status",
