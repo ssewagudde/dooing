@@ -20,6 +20,7 @@ local M = {}
 --------------------------------------------------
 local state = require("dooing.state")
 local config = require("dooing.config")
+local calendar = require("dooing.calendar")
 
 --------------------------------------------------
 -- Local Variables
@@ -411,13 +412,12 @@ local function create_search_window()
 end
 
 -- Add due date to to-do in the format MM/DD/YYYY
+-- In ui.lua, update the add_due_date function
 local function add_due_date()
 	local current_line = vim.api.nvim_win_get_cursor(0)[1]
 	local todo_index = current_line - (state.active_filter and 3 or 1)
 
-  -- @TODO: handle custom date formats
-	vim.ui.input({ prompt = "Enter due date (MM/DD/YYYY): " }, function(date_str)
-    print(date_str)
+	calendar.create(function(date_str)
 		if date_str and date_str ~= "" then
 			local success, err = state.add_due_date(todo_index, date_str)
 
@@ -428,7 +428,7 @@ local function add_due_date()
 				vim.notify("Error adding due date: " .. (err or "Unknown error"), vim.log.levels.ERROR)
 			end
 		end
-	end)
+	end, { language = "en" })
 end
 
 -- Remove due date from to-do

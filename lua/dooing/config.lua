@@ -34,6 +34,19 @@ M.defaults = {
 		delete_tag = "d",
 		search_todos = "/",
 	},
+	calendar = {
+		language = "en",
+		keymaps = {
+			previous_day = "h",
+			next_day = "l",
+			previous_week = "k",
+			next_week = "j",
+			previous_month = "H",
+			next_month = "L",
+			select_day = "<CR>",
+			close_calendar = "q",
+		},
+	},
 }
 
 M.options = {}
