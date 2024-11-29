@@ -1,7 +1,6 @@
 local Calendar = {}
 
 local config = require("dooing.config")
-local vim = require("vim")
 
 -- Month names in different languages
 local MONTH_NAMES = {
