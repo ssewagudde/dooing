@@ -1,9 +1,9 @@
-local Calendar = {}
+local Cal = {}
 
 local config = require("dooing.config")
 
 -- Month names in different languages
-local MONTH_NAMES = {
+Cal.MONTH_NAMES = {
 	en = {
 		"January",
 		"February",
@@ -33,6 +33,12 @@ local MONTH_NAMES = {
 		"Dezembro",
 	},
 }
+
+-- Helper function get calendar language to use on ui
+function Cal.get_language()
+	local calendar_opts = config.options.calendar or {}
+	return calendar_opts.language or "en"
+end
 
 ---Calculates the number of days in a given month and year
 local function get_days_in_month(month, year)
@@ -64,7 +70,7 @@ local function setup_highlights()
 	vim.api.nvim_set_hl(0, "CalendarToday", { link = "Directory" })
 end
 
-function Calendar.create(callback, opts)
+function Cal.create(callback, opts)
 	opts = opts or {}
 	local calendar_opts = config.options.calendar
 	local language = calendar_opts.language or "en"
@@ -102,7 +108,7 @@ function Calendar.create(callback, opts)
 		height = height,
 		style = "minimal",
 		border = "single",
-		title = string.format(" %s %d ", MONTH_NAMES[language][cal.month], cal.year),
+		title = string.format(" %s %d ", Cal.MONTH_NAMES[language][cal.month], cal.year),
 		title_pos = "center",
 	})
 
@@ -233,7 +239,7 @@ function Calendar.create(callback, opts)
 		end
 
 		vim.api.nvim_win_set_config(cal.win_id, {
-			title = string.format(" %s %d ", MONTH_NAMES[language][cal.month], cal.year),
+			title = string.format(" %s %d ", Cal.MONTH_NAMES[language][cal.month], cal.year),
 			title_pos = "center",
 		})
 
@@ -361,4 +367,4 @@ function Calendar.create(callback, opts)
 	return cal
 end
 
-return Calendar
+return Cal

@@ -449,7 +449,7 @@ end
 -- Creates and configures the main todo window
 local function create_window()
 	local ui = vim.api.nvim_list_uis()[1]
-	local width = 40
+	local width = 55
 	local height = 20
 	local col = math.floor((ui.width - width) / 2)
 	local row = math.floor((ui.height - height) / 2)
@@ -513,6 +513,9 @@ function M.render_todos()
 	local lines = { "" }
 	state.sort_todos()
 
+	local lang = calendar and calendar.get_language()
+	lang = calendar.MONTH_NAMES[lang] and lang or "en"
+
 	for _, todo in ipairs(state.todos) do
 		if not state.active_filter or todo.text:match("#" .. state.active_filter) then
 			local icon = todo.done and "✓" or "○"
@@ -521,8 +524,16 @@ function M.render_todos()
 			-- Format due date if exists
 			local due_date_str = ""
 			if todo.due_at then
-				local formatted_date = os.date("%m/%d/%Y", todo.due_at)
-				due_date_str = " [@" .. formatted_date .. "]"
+				local date = os.date("*t", todo.due_at)
+				local month = calendar.MONTH_NAMES[lang][date.month]
+
+				local formatted_date
+				if lang == "pt" then
+					formatted_date = string.format("%d de %s de %d", date.day, month, date.year)
+				else
+					formatted_date = string.format("%s %d, %d", month, date.day, date.year)
+				end
+				due_date_str = " [@ " .. formatted_date .. "]"
 
 				-- Highlight overdue todos
 				local current_time = os.time()
