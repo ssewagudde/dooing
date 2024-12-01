@@ -354,7 +354,7 @@ local function handle_search_query(query)
 	-- Highlight todos on search results
 	for i, line in ipairs(lines) do
 		if line:match("^%s+[" .. done_icon .. pending_icon .. "]") then
-			local hl_group = line:match( done_icon ) and "DooingDone" or "DooingPending"
+			local hl_group = line:match(done_icon) and "DooingDone" or "DooingPending"
 			vim.api.nvim_buf_add_highlight(search_buf_id, ns_id, hl_group, i - 1, 0, -1)
 			for tag in line:gmatch("#(%w+)") do
 				local start_idx = line:find("#" .. tag) - 1
@@ -588,7 +588,7 @@ function M.render_todos()
 				else -- "en"
 					formatted_date = string.format("%s %d, %d", month, date.day, date.year)
 				end
-				due_date_str = " [" .. formatted_date .. "]"
+				due_date_str = " [" .. config.options.icons.calendar .. " " .. formatted_date .. "]"
 
 				-- Highlight overdue todos
 				local current_time = os.time()

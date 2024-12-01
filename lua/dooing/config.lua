@@ -16,6 +16,7 @@ M.defaults = {
 	icons = {
 		pending = "○",
 		done = "✓",
+		calendar = "",
 	},
 	prioritization = false,
 	priorities = {
