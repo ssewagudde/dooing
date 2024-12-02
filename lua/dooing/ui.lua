@@ -73,29 +73,62 @@ local function setup_highlights()
 	highlight_cache.help = "DooingHelpText"
 end
 
--- Get or create highlight group for a threshold
-local function get_threshold_highlight(threshold)
-	if not threshold then
+-- Get highlight group for a set of priorities
+local function get_priority_highlight(priorities)
+	if not priorities or #priorities == 0 then
 		return highlight_cache.pending
 	end
 
-	local cache_key = threshold.color or threshold.hl_group
-	if highlight_cache[cache_key] then
-		return highlight_cache[cache_key]
+	-- Sort priority groups by number of members (descending)
+	local sorted_groups = {}
+	for name, group in pairs(config.options.priority_groups) do
+		table.insert(sorted_groups, { name = name, group = group })
+	end
+	table.sort(sorted_groups, function(a, b)
+		return #a.group.members > #b.group.members
+	end)
+
+	-- Check priority groups from largest to smallest
+	for _, group_data in ipairs(sorted_groups) do
+		local group = group_data.group
+		-- Check if all group members are present in the priorities
+		local all_members_match = true
+		for _, member in ipairs(group.members) do
+			local found = false
+			for _, priority in ipairs(priorities) do
+				if priority == member then
+					found = true
+					break
+				end
+			end
+			if not found then
+				all_members_match = false
+				break
+			end
+		end
+
+		if all_members_match then
+			-- Create cache key from group definition
+			local cache_key = table.concat(group.members, "_")
+			if highlight_cache[cache_key] then
+				return highlight_cache[cache_key]
+			end
+
+			local hl_group = highlight_cache.pending
+			if group.color and type(group.color) == "string" and group.color:match("^#%x%x%x%x%x%x$") then
+				local hl_name = "Dooing" .. group.color:gsub("#", "")
+				vim.api.nvim_set_hl(0, hl_name, { fg = group.color })
+				hl_group = hl_name
+			elseif group.hl_group then
+				hl_group = group.hl_group
+			end
+
+			highlight_cache[cache_key] = hl_group
+			return hl_group
+		end
 	end
 
-	local hl_group = highlight_cache.pending
-
-	if threshold.color and type(threshold.color) == "string" and threshold.color:match("^#%x%x%x%x%x%x$") then
-		local hl_name = "Dooing" .. threshold.color:gsub("#", "")
-		api.nvim_set_hl(0, hl_name, { fg = threshold.color })
-		hl_group = hl_name
-	elseif threshold.hl_group then
-		hl_group = threshold.hl_group
-	end
-
-	highlight_cache[cache_key] = hl_group
-	return hl_group
+	return highlight_cache.pending
 end
 
 --------------------------------------------------
@@ -178,6 +211,8 @@ create_help_window = function()
 		" q           - Close window",
 		" H           - Add due date to to-do ",
 		" r           - Remove to-do due date",
+   	" T     - Add time estimation",
+		" R     - Remove time estimation",
 		" ?           - Toggle this help window",
 		" t           - Toggle tags window",
 		" c           - Clear active tag filter",
@@ -511,6 +546,70 @@ local function create_search_window()
 	})
 end
 
+-- Parse time estimation string (e.g., "2h", "1d", "0.5w")
+function M.parse_time_estimation(time_str)
+	local number, unit = time_str:match("^(%d+%.?%d*)([mhdw])$")
+
+	if not (number and unit) then
+		return nil,
+			"Invalid format. Use number followed by m (minutes), h (hours), d (days), or w (weeks). E.g., 30m, 2h, 1d, 0.5w"
+	end
+
+	local hours = tonumber(number)
+	if not hours then
+		return nil, "Invalid number format"
+	end
+
+	-- Convert to hours
+	if unit == "m" then
+		hours = hours / 60
+	elseif unit == "d" then
+		hours = hours * 24
+	elseif unit == "w" then
+		hours = hours * 24 * 7
+	end
+
+	return hours
+end
+
+-- Add estimated completion time to todo
+local function add_time_estimation()
+	local current_line = vim.api.nvim_win_get_cursor(0)[1]
+	local todo_index = current_line - (state.active_filter and 3 or 1)
+
+	vim.ui.input({
+		prompt = "Estimated completion time (e.g., 15m, 2h, 1d, 0.5w): ",
+		default = "",
+	}, function(input)
+		if input and input ~= "" then
+			local hours, err = M.parse_time_estimation(input)
+			if hours then
+				state.todos[todo_index].estimated_hours = hours
+				state.save_todos()
+				vim.notify("Time estimation added successfully", vim.log.levels.INFO)
+				M.render_todos()
+			else
+				vim.notify("Error adding time estimation: " .. (err or "Unknown error"), vim.log.levels.ERROR)
+			end
+		end
+	end)
+end
+
+-- Remove estimated completion time from todo
+local function remove_time_estimation()
+	local current_line = vim.api.nvim_win_get_cursor(0)[1]
+	local todo_index = current_line - (state.active_filter and 3 or 1)
+
+	if state.todos[todo_index] then
+		state.todos[todo_index].estimated_hours = nil
+		state.save_todos()
+		vim.notify("Time estimation removed successfully", vim.log.levels.INFO)
+		M.render_todos()
+	else
+		vim.notify("Error removing time estimation", vim.log.levels.ERROR)
+	end
+end
+
 -- Add due date to to-do in the format MM/DD/YYYY
 -- In ui.lua, update the add_due_date function
 local function add_due_date()
@@ -594,6 +693,8 @@ local function create_window()
 	set_conditional_keymap("edit_todo", edit_todo, { buffer = buf_id, nowait = true })
 	set_conditional_keymap("add_due_date", add_due_date, { buffer = buf_id, nowait = true })
 	set_conditional_keymap("remove_due_date", remove_due_date, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("add_time_estimation", add_time_estimation, { buffer = buf_id, nowait = true })
+	set_conditional_keymap("remove_time_estimation", remove_time_estimation, { buffer = buf_id, nowait = true })
 	set_conditional_keymap("import_todos", prompt_import, { buffer = buf_id, nowait = true })
 	set_conditional_keymap("export_todos", prompt_export, { buffer = buf_id, nowait = true })
 	set_conditional_keymap("remove_duplicates", M.remove_duplicates, { buffer = buf_id, nowait = true })
@@ -618,7 +719,7 @@ local function render_todo(todo, formatting, lang)
 	-- Get config formatting
 	local format = todo.done and formatting.done.format or formatting.pending.format
 	if not format then
-		format = { "icon", "text" } -- Default format: icon and text
+		format = { "icon", "text", "ect" } -- Default format: icon, text, and estimated completion time
 	end
 
 	-- Breakdown config format and get dynamic text based on other configs
@@ -659,7 +760,23 @@ local function render_todo(todo, formatting, lang)
 		elseif part == "priority" then
 			local score = state.get_priority_score(todo)
 			table.insert(components, string.format("Priority: %d", score))
-		end
+    elseif part == "ect" then
+      if todo.estimated_hours then
+        local time_str
+        if todo.estimated_hours >= 168 then -- more than a week
+           local weeks = todo.estimated_hours / 168
+           time_str = string.format("[≈ %gw]", weeks)
+        elseif todo.estimated_hours >= 24 then -- more than a day
+          local days = todo.estimated_hours / 24
+          time_str = string.format("[≈ %gd]", days)
+        elseif todo.estimated_hours >= 1 then -- more than an hour
+          time_str = string.format("[≈ %gh]", todo.estimated_hours)
+        else -- less than an hour
+          time_str = string.format("[≈ %gm]", todo.estimated_hours * 60)
+        end
+          table.insert(components, time_str)
+        end
+    end
 	end
 
 	-- Join the components into a single string
@@ -702,52 +819,48 @@ function M.render_todos()
 
 	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
 
+	-- Helper function to add highlight
+	local function add_hl(line_nr, start_col, end_col, hl_group)
+		vim.api.nvim_buf_add_highlight(buf_id, ns_id, hl_group, line_nr, start_col, end_col)
+	end
+
+	-- Helper function to find pattern and highlight
+	local function highlight_pattern(line, line_nr, pattern, hl_group)
+		local start_idx = line:find(pattern)
+		if start_idx then
+			add_hl(line_nr, start_idx - 1, -1, hl_group)
+		end
+	end
+
 	for i, line in ipairs(lines) do
+		local line_nr = i - 1
 		if line:match("^%s+[" .. done_icon .. pending_icon .. "]") then
 			local todo_index = i - (state.active_filter and 3 or 1)
 			local todo = state.todos[todo_index]
 
 			if todo then
-				-- If todo is done, use DooingDone highlight
+				-- Base todo highlight
 				if todo.done then
-					vim.api.nvim_buf_add_highlight(buf_id, ns_id, "DooingDone", i - 1, 0, -1)
+					add_hl(line_nr, 0, -1, "DooingDone")
 				else
-					-- Calculate priority score and find matching threshold
-					local score = state.get_priority_score(todo)
-					local threshold = nil
-
-					for _, t in ipairs(config.options.priority_thresholds) do
-						if score >= t.min and score <= t.max then
-							threshold = t
-							break
-						end
-					end
-					local hl_group = get_threshold_highlight(threshold)
-					vim.api.nvim_buf_add_highlight(buf_id, ns_id, hl_group, i - 1, 0, -1)
+					-- Get highlight based on priorities
+					local hl_group = get_priority_highlight(todo.priorities)
+					add_hl(line_nr, 0, -1, hl_group)
 				end
 
-				-- Highlight tags
+				-- Tags highlight
 				for tag in line:gmatch("#(%w+)") do
-					local start_idx = line:find("#" .. tag) - 1
-					vim.api.nvim_buf_add_highlight(buf_id, ns_id, "Type", i - 1, start_idx, start_idx + #tag + 1)
+					local tag_pattern = "#" .. tag
+					local start_idx = line:find(tag_pattern) - 1
+					add_hl(line_nr, start_idx, start_idx + #tag_pattern, "Type")
 				end
 
-				-- Highlight due dates and overdue status
-				local due_date_match = line:match("%[@(%d+/%d+/%d+)%]")
-				local overdue_match = line:match("%[OVERDUE%]")
-
-				if due_date_match then
-					local due_date_start = line:find("@" .. due_date_match)
-					vim.api.nvim_buf_add_highlight(buf_id, ns_id, "Comment", i - 1, due_date_start - 1, -1)
-				end
-
-				if overdue_match then
-					local overdue_start = line:find("%[OVERDUE%]")
-					vim.api.nvim_buf_add_highlight(buf_id, ns_id, "ErrorMsg", i - 1, overdue_start - 1, -1)
-				end
+				-- Due date and overdue highlights
+				highlight_pattern(line, line_nr, "%[@%d+/%d+/%d+%]", "Comment")
+				highlight_pattern(line, line_nr, "%[OVERDUE%]", "ErrorMsg")
 			end
 		elseif line:match("Filtered by:") then
-			vim.api.nvim_buf_add_highlight(buf_id, ns_id, "WarningMsg", i - 1, 0, -1)
+			add_hl(line_nr, 0, -1, "WarningMsg")
 		end
 	end
 
@@ -783,8 +896,8 @@ end
 function M.new_todo()
 	vim.ui.input({ prompt = "New to-do: " }, function(input)
 		if input and input ~= "" then
-			-- Check if prioritization is enabled
-			if config.options.prioritization then
+			-- Check if priorities are configured
+			if config.options.priorities and #config.options.priorities > 0 then
 				local priorities = config.options.priorities
 				local priority_options = {}
 				local selected_priorities = {}

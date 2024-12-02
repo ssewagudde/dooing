@@ -16,14 +16,13 @@ M.defaults = {
 	formatting = {
 		pending = {
 			icon = "○",
-			format = { "icon", "text", "due_date" },
+			format = { "icon", "text", "due_date", "ect" },
 		},
 		done = {
 			icon = "✓",
-			format = { "icon", "text", "due_date" },
+			format = { "icon", "text", "due_date", "ect" },
 		},
 	},
-	prioritization = false,
 	priorities = {
 		{
 			name = "important",
@@ -34,26 +33,24 @@ M.defaults = {
 			weight = 2,
 		},
 	},
-	priority_thresholds = {
-		{
-			min = 5, -- Corresponds to `urgent` and `important` tasks
-			max = 999,
+	priority_groups = {
+		high = {
+			members = { "important", "urgent" },
 			color = nil,
 			hl_group = "DiagnosticError",
 		},
-		{
-			min = 3, -- Corresponds to `important` tasks
-			max = 4,
+		medium = {
+			members = { "important" },
 			color = nil,
 			hl_group = "DiagnosticWarn",
 		},
-		{
-			min = 1, -- Corresponds to `urgent tasks`
-			max = 2,
+		low = {
+			members = { "urgent" },
 			color = nil,
 			hl_group = "DiagnosticInfo",
 		},
 	},
+	hour_score_value = 1 / 8,
 	save_path = vim.fn.stdpath("data") .. "/dooing_todos.json",
 	keymaps = {
 		toggle_window = "<leader>td",
@@ -71,7 +68,8 @@ M.defaults = {
 		edit_tag = "e",
 		delete_tag = "d",
 		search_todos = "/",
-		toggle_priority = "<Space>",
+		add_time_estimation = "T",
+		remove_time_estimation = "R",
 		import_todos = "I",
 		export_todos = "E",
 		remove_duplicates = "<leader>D",

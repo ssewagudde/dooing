@@ -46,7 +46,8 @@ function M.add_todo(text, priority_names)
 		done = false,
 		category = text:match("#(%w+)") or "",
 		created_at = os.time(),
-		priority = priority_names,
+		priorities = priority_names,
+		estimated_hours = nil, -- Add estimated_hours field
 	})
 	save_todos()
 end
@@ -124,6 +125,31 @@ function M.remove_due_date(index)
 	return false
 end
 
+-- Add estimated completion time to a todo
+function M.add_time_estimation(index, hours)
+	if not M.todos[index] then
+		return false, "Todo not found"
+	end
+
+	if type(hours) ~= "number" or hours < 0 then
+		return false, "Invalid time estimation"
+	end
+
+	M.todos[index].estimated_hours = hours
+	M.save_todos()
+	return true
+end
+
+-- Remove estimated completion time from a todo
+function M.remove_time_estimation(index)
+	if M.todos[index] then
+		M.todos[index].estimated_hours = nil
+		M.save_todos()
+		return true
+	end
+	return false
+end
+
 function M.get_all_tags()
 	local tags = {}
 	local seen = {}
@@ -193,32 +219,57 @@ end
 
 -- Calculate priority score for a todo item
 function M.get_priority_score(todo)
-	if not todo.priority or not config.options.prioritization or todo.done then
+	if todo.done then
 		return 0
 	end
 
-	local score = 0
-	for _, priority_name in ipairs(todo.priority) do
-		score = score + (priority_weights[priority_name] or 0)
+	if not config.options.priorities or #config.options.priorities == 0 then
+		return 0
 	end
-	return score
+
+	-- Calculate base score from priorities
+	local score = 0
+	if todo.priorities and type(todo.priorities) == "table" then
+		for _, priority_name in ipairs(todo.priorities) do
+			score = score + (priority_weights[priority_name] or 0)
+		end
+	end
+
+	-- Calculate estimated completion time multiplier
+	local ect_multiplier = 1
+	if todo.estimated_hours and todo.estimated_hours > 0 then
+		ect_multiplier = 1 / (todo.estimated_hours * config.options.hour_score_value)
+	end
+
+	return score * ect_multiplier
 end
 
 function M.sort_todos()
 	table.sort(M.todos, function(a, b)
-		-- If prioritization is enabled, sort by priority first
-		if config.options.prioritization then
+		-- First sort by completion status
+		if a.done ~= b.done then
+			return not a.done -- Undone items come first
+		end
+
+		-- Then sort by priority score if configured
+		if config.options.priorities and #config.options.priorities > 0 then
 			local a_score = M.get_priority_score(a)
 			local b_score = M.get_priority_score(b)
 
 			if a_score ~= b_score then
-				return a_score > b_score -- Higher score = higher priority
+				return a_score > b_score
 			end
 		end
 
-		-- Then sort by completion status
-		if a.done ~= b.done then
-			return not a.done -- Undone items come first
+		-- Then sort by due date if both have one
+		if a.due_at and b.due_at then
+			if a.due_at ~= b.due_at then
+				return a.due_at < b.due_at
+			end
+		elseif a.due_at then
+			return true -- Items with due date come first
+		elseif b.due_at then
+			return false
 		end
 
 		-- Finally sort by creation time

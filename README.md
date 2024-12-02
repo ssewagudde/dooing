@@ -48,65 +48,89 @@ Dooing comes with sensible defaults that you can override:
 ```lua
 {
     -- Core settings
-	save_path = vim.fn.stdpath("data") .. "/dooing_todos.json",
+    save_path = vim.fn.stdpath("data") .. "/dooing_todos.json",
 
     -- Window settings
     window = {
-		width = 55,
-		height = 20,
-		border = "rounded",
-		padding = {
-			top = 1,
-			bottom = 1,
-			left = 2,
-			right = 2,
-		},
-	},
+        width = 55,         -- Width of the floating window
+        height = 20,        -- Height of the floating window
+        border = 'rounded', -- Border style
+        padding = {
+            top = 1,
+            bottom = 1,
+            left = 2,
+            right = 2,
+        },
+    },
 
     -- To-do formatting
-	formatting = {
-		pending = {
-			icon = "○",
-			format = { "icon", "text", "due_date" },
-		},
-		done = {
-			icon = "✓",
-			format = { "icon", "text", "due_date" },
-		},
-	},
+    formatting = {
+        pending = {
+            icon = "○",
+            format = { "icon", "text", "due_date", "ect" },
+        },
+        done = {
+            icon = "✓",
+            format = { "icon", "text", "due_date", "ect" },
+        },
+    },
+    
+    -- Icons
+    icons = {
+        pending = '○',      -- Pending todo icon
+        done = '✓',        -- Completed todo icon
+        calendar = '',    -- Calendar icon
+    },
+    
+    -- Keymaps
+    keymaps = {
+        toggle_window = "<leader>td", -- Toggle the main window
+        new_todo = "i",              -- Add a new todo
+        toggle_todo = "x",           -- Toggle todo status
+        delete_todo = "d",           -- Delete the current todo
+        delete_completed = "D",      -- Delete all completed todos
+        close_window = "q",          -- Close the window
+        add_due_date = "h",          -- Add due date to todo
+        remove_due_date = "r",       -- Remove due date from todo
+        toggle_help = "?",           -- Toggle help window
+        toggle_tags = "t",           -- Toggle tags window
+        clear_filter = "c",          -- Clear active tag filter
+        edit_todo = "e",             -- Edit todo item
+        edit_tag = "e",              -- Edit tag [on tag window]
+        delete_tag = "d",            -- Delete tag [on tag window]
+        search_todo = "/",           -- Toggle todo searching
+        toggle_priority = "<Space>"  -- Toggle todo priority on creation
+    },
 
-    -- Priorization options
-	prioritization = false,
-	priorities = {
-		{
-			name = "important",
-			weight = 4,
-		},
-		{
-			name = "urgent",
-			weight = 2,
-		},
-	},
-	priority_thresholds = {
-		{
-			min = 5, -- Corresponds to `urgent` and `important` tasks
-			max = 999,
-			color = nil,
-			hl_group = "DiagnosticError",
-		},
-		{
-			min = 3, -- Corresponds to `important` tasks
-			max = 4,
-			color = nil,
-			hl_group = "DiagnosticWarn",
-		},
-		{
-			min = 1, -- Corresponds to `urgent tasks`
-			max = 2,
-			color = nil,
-			hl_group = "DiagnosticInfo",
-		},
-	},
+    -- Priority settings
+    priorities = {                   -- Define available priorities
+        {
+            name = "important",
+            weight = 4,              -- Higher weight = higher priority
+        },
+        {
+            name = "urgent",
+            weight = 2,
+        },
+    },
+    priority_groups = {              -- Define highlight groups for priority combinations
+        high = {
+            members = { "important", "urgent" },
+            color = nil,             -- Custom color (hex) or nil to use hl_group
+            hl_group = "DiagnosticError",
+        },
+        medium = {
+            members = { "important" },
+            color = nil,
+            hl_group = "DiagnosticWarn",
+        },
+        low = {
+            members = { "urgent" },
+            color = nil,
+            hl_group = "DiagnosticInfo",
+        },
+    },
+    hour_score_value = 1/8,         -- Priority score adjustment based on estimated hours
 
     -- Default keymaps
 	keymaps = {
@@ -150,11 +174,15 @@ Dooing comes with sensible defaults that you can override:
 
 ## Commands
 
-Dooing can be controlled through user commands:
+Dooing provides several commands for task management:
 
-- `:Dooing` opens the main window,
-- `:Dooing add Your Simple Task`, adds a task.
-- `:Dooing -p important,urgent Your Important and Urgent task`, assigns priority to it.
+- `:Dooing` - Opens the main window
+- `:Dooing add [text]` - Adds a new task
+  - `-p, --priorities [list]` - Comma-separated list of priorities (e.g. "important,urgent")
+- `:Dooing list` - Lists all todos with their indices and metadata
+- `:Dooing set [index] [field] [value]` - Modifies todo properties
+  - `priorities` - Set/update priorities (use "nil" to clear)
+  - `ect` - Set estimated completion time (e.g. "30m", "2h", "1d", "0.5w")
 
 ---
 
