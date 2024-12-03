@@ -74,6 +74,8 @@ Dooing comes with sensible defaults that you can override:
             format = { "icon", "text", "due_date", "ect" },
         },
     },
+
+	quick_keys = true, -- Quick keys window
     
     -- Icons
     icons = {
@@ -94,6 +96,7 @@ Dooing comes with sensible defaults that you can override:
         remove_due_date = "r",       -- Remove due date from todo
         toggle_help = "?",           -- Toggle help window
         toggle_tags = "t",           -- Toggle tags window
+		undo_delete = "u",           -- Undo delete 
         clear_filter = "c",          -- Clear active tag filter
         edit_todo = "e",             -- Edit todo item
         edit_tag = "e",              -- Edit tag [on tag window]
