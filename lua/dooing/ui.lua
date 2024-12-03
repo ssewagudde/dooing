@@ -217,6 +217,7 @@ create_help_window = function()
 		" t           - Toggle tags window",
 		" c           - Clear active tag filter",
 		" e           - Edit to-do item",
+		" u           - Undo deletition",
 		" /           - Search todos",
 		" I           - Import todos",
 		" E           - Export todos",
@@ -645,6 +646,92 @@ local function remove_due_date()
 	end
 end
 
+-- Creates and configures the small keys window
+local function create_small_keys_window(main_win_pos)
+	if not config.options.quick_keys then
+		return nil
+	end
+
+	local small_buf = vim.api.nvim_create_buf(false, true)
+	local width = config.options.window.width
+
+	-- Define two separate line arrays for each column
+	local lines_1 = {
+		"",
+		"  i - New todo",
+		"  x - Toggle todo",
+		"  d - Delete todo",
+		"  u - Undo delete",
+		"  H - Add due date",
+		"",
+	}
+
+	local lines_2 = {
+		"",
+		"  T - Add time",
+		"  t - Tags",
+		"  / - Search",
+		"  I - Import",
+		"  E - Export",
+		"",
+	}
+
+	-- Calculate middle point for even spacing
+	local mid_point = math.floor(width / 2)
+	local padding = 2
+
+	-- Create combined lines with centered columns
+	local lines = {}
+	for i = 1, #lines_1 do
+		local line1 = lines_1[i] .. string.rep(" ", mid_point - #lines_1[i] - padding)
+		local line2 = lines_2[i] or ""
+		lines[i] = line1 .. line2
+	end
+
+	vim.api.nvim_buf_set_lines(small_buf, 0, -1, false, lines)
+	vim.api.nvim_buf_set_option(small_buf, "modifiable", false)
+	vim.api.nvim_buf_set_option(small_buf, "buftype", "nofile")
+
+	-- Position it under the main window
+	local row = main_win_pos.row + main_win_pos.height + 1
+
+	local small_win = vim.api.nvim_open_win(small_buf, false, {
+		relative = "editor",
+		row = row,
+		col = main_win_pos.col,
+		width = width,
+		height = #lines,
+		style = "minimal",
+		border = "rounded",
+		focusable = false,
+		zindex = 45,
+		footer = " Quick Keys ",
+		footer_pos = "center",
+	})
+
+	-- Add highlights
+	local ns = vim.api.nvim_create_namespace("dooing_small_keys")
+
+	-- Highlight title
+	vim.api.nvim_buf_add_highlight(small_buf, ns, "DooingQuickTitle", 0, 0, -1)
+
+	-- Highlight each key and description in both columns
+	for i = 1, #lines - 1 do
+		if i > 0 then
+			-- Left column
+			vim.api.nvim_buf_add_highlight(small_buf, ns, "DooingQuickKey", i, 2, 3) -- Key
+			vim.api.nvim_buf_add_highlight(small_buf, ns, "DooingQuickDesc", i, 5, mid_point - padding) -- Description
+
+			-- Right column
+			local right_key_start = mid_point
+			vim.api.nvim_buf_add_highlight(small_buf, ns, "DooingQuickKey", i, right_key_start + 2, right_key_start + 3) -- Key
+			vim.api.nvim_buf_add_highlight(small_buf, ns, "DooingQuickDesc", i, right_key_start + 5, -1) -- Description
+		end
+	end
+
+	return small_win
+end
+
 -- Creates and configures the main todo window
 local function create_window()
 	local ui = vim.api.nvim_list_uis()[1]
@@ -654,12 +741,6 @@ local function create_window()
 	local row = math.floor((ui.height - height) / 2)
 
 	setup_highlights()
-
-	local function set_conditional_keymap(key_option, callback, opts)
-		if config.options.keymaps[key_option] then
-			vim.keymap.set("n", config.options.keymaps[key_option], callback, opts)
-		end
-	end
 
 	buf_id = vim.api.nvim_create_buf(false, true)
 
@@ -677,32 +758,72 @@ local function create_window()
 		footer_pos = "center",
 	})
 
+	-- Create small keys window with main window position
+	local small_win = create_small_keys_window({
+		row = row,
+		col = col,
+		width = width,
+		height = height,
+	})
+
+	-- Close small window when main window is closed
+	if small_win then
+		vim.api.nvim_create_autocmd("WinClosed", {
+			pattern = tostring(win_id),
+			callback = function()
+				if vim.api.nvim_win_is_valid(small_win) then
+					vim.api.nvim_win_close(small_win, true)
+				end
+			end,
+		})
+	end
+
 	vim.api.nvim_win_set_option(win_id, "wrap", true)
 	vim.api.nvim_win_set_option(win_id, "linebreak", true)
 	vim.api.nvim_win_set_option(win_id, "breakindent", true)
 	vim.api.nvim_win_set_option(win_id, "breakindentopt", "shift:2")
 	vim.api.nvim_win_set_option(win_id, "showbreak", " ")
 
-	set_conditional_keymap("new_todo", M.new_todo, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("toggle_todo", M.toggle_todo, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("delete_todo", M.delete_todo, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("delete_completed", M.delete_completed, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("close_window", M.close_window, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("toggle_help", create_help_window, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("toggle_tags", create_tag_window, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("edit_todo", edit_todo, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("add_due_date", add_due_date, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("remove_due_date", remove_due_date, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("add_time_estimation", add_time_estimation, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("remove_time_estimation", remove_time_estimation, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("import_todos", prompt_import, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("export_todos", prompt_export, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("remove_duplicates", M.remove_duplicates, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("search_todos", create_search_window, { buffer = buf_id, nowait = true })
-	set_conditional_keymap("clear_filter", function()
+	-- Setup keymaps
+	local function setup_keymap(key_option, callback)
+		if config.options.keymaps[key_option] then
+			vim.keymap.set("n", config.options.keymaps[key_option], callback, { buffer = buf_id, nowait = true })
+		end
+	end
+
+	-- Main actions
+	setup_keymap("new_todo", M.new_todo)
+	setup_keymap("toggle_todo", M.toggle_todo)
+	setup_keymap("delete_todo", M.delete_todo)
+	setup_keymap("delete_completed", M.delete_completed)
+	setup_keymap("close_window", M.close_window)
+	setup_keymap("undo_delete", function()
+		if state.undo_delete() then
+			M.render_todos()
+			vim.notify("Todo restored", vim.log.levels.INFO)
+		end
+	end)
+
+	-- Window and view management
+	setup_keymap("toggle_help", create_help_window)
+	setup_keymap("toggle_tags", create_tag_window)
+	setup_keymap("clear_filter", function()
 		state.set_filter(nil)
 		M.render_todos()
-	end, { buffer = buf_id, desc = "Clear filter" })
+	end)
+
+	-- Todo editing and management
+	setup_keymap("edit_todo", edit_todo)
+	setup_keymap("add_due_date", add_due_date)
+	setup_keymap("remove_due_date", remove_due_date)
+	setup_keymap("add_time_estimation", add_time_estimation)
+	setup_keymap("remove_time_estimation", remove_time_estimation)
+
+	-- Import/Export functionality
+	setup_keymap("import_todos", prompt_import)
+	setup_keymap("export_todos", prompt_export)
+	setup_keymap("remove_duplicates", M.remove_duplicates)
+	setup_keymap("search_todos", create_search_window)
 end
 
 -- Public Interface

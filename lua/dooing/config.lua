@@ -13,6 +13,7 @@ M.defaults = {
 			right = 2,
 		},
 	},
+	quick_keys = true,
 	formatting = {
 		pending = {
 			icon = "○",
@@ -59,6 +60,7 @@ M.defaults = {
 		delete_todo = "d",
 		delete_completed = "D",
 		close_window = "q",
+		undo_delete = "u",
 		add_due_date = "H",
 		remove_due_date = "r",
 		toggle_help = "?",

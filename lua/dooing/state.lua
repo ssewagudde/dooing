@@ -598,5 +598,70 @@ function M.delete_todo_with_confirmation(todo_index, win_id, calendar, callback)
 		once = true,
 	})
 end
+-- In state.lua, add these at the top with other local variables:
+local deleted_todos = {}
+local MAX_UNDO_HISTORY = 100
+
+-- Add these functions to state.lua:
+function M.store_deleted_todo(todo, index)
+	table.insert(deleted_todos, 1, {
+		todo = vim.deepcopy(todo),
+		index = index,
+		timestamp = os.time(),
+	})
+	-- Keep only the last MAX_UNDO_HISTORY deletions
+	if #deleted_todos > MAX_UNDO_HISTORY then
+		table.remove(deleted_todos)
+	end
+end
+
+function M.undo_delete()
+	if #deleted_todos == 0 then
+		vim.notify("No more todos to restore", vim.log.levels.INFO)
+		return false
+	end
+
+	local last_deleted = table.remove(deleted_todos, 1)
+
+	-- If index is greater than current todos length, append to end
+	local insert_index = math.min(last_deleted.index, #M.todos + 1)
+
+	-- Insert the todo at the original position
+	table.insert(M.todos, insert_index, last_deleted.todo)
+
+	-- Save the updated todos
+	M.save_todos()
+
+	-- Return true to indicate successful undo
+	return true
+end
+
+-- Modify the delete_todo function in state.lua:
+function M.delete_todo(index)
+	if M.todos[index] then
+		local todo = M.todos[index]
+		M.store_deleted_todo(todo, index)
+		table.remove(M.todos, index)
+		save_todos()
+	end
+end
+
+-- Add to delete_completed in state.lua:
+function M.delete_completed()
+	local remaining_todos = {}
+	local removed_count = 0
+
+	for i, todo in ipairs(M.todos) do
+		if todo.done then
+			M.store_deleted_todo(todo, i - removed_count)
+			removed_count = removed_count + 1
+		else
+			table.insert(remaining_todos, todo)
+		end
+	end
+
+	M.todos = remaining_todos
+	save_todos()
+end
 
 return M
