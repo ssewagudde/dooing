@@ -286,6 +286,15 @@ Dooing was built with the Neovim community in mind. Special thanks to all the de
 
 ---
 
+## My All plugins
+| Repository | Description | Stars |
+|------------|-------------|-------|
+| [LazyClip](https://github.com/atiladefreitas/lazyclip) | A Simple Clipboard Manager | ![Stars](https://img.shields.io/github/stars/atiladefreitas/lazyclip?style=social) |
+| [Dooing](https://github.com/atiladefreitas/dooing) | A Minimalist Todo List Manager | ![Stars](https://img.shields.io/github/stars/atiladefreitas/dooing?style=social) |
+| [TinyUnit](https://github.com/atiladefreitas/tinyunit) | A Practical CSS Unit Converter | ![Stars](https://img.shields.io/github/stars/atiladefreitas/tinyunit?style=social) |
+
+---
+
 ## 📬 Contact
 
 If you have any questions, feel free to reach out:
