@@ -348,16 +348,54 @@ end
 
 -- Helper function to get the priority-based highlights
 local function get_priority_highlights(todo)
-	if not config.options.prioritization then
+	-- First check if the todo is done
+	if todo.done then
+		return "DooingDone"
+	end
+
+	-- If there are no priorities configured, return the default pending highlight
+	if not config.options.priorities or #config.options.priorities == 0 then
 		return "DooingPending"
 	end
 
-	local score = M.get_priority_score(todo)
-	for _, threshold in ipairs(config.options.priority_thresholds) do
-		if score >= threshold.min and score <= threshold.max then
-			return threshold.hl_group
+	-- If the todo has priorities, check priority groups
+	if todo.priorities and #todo.priorities > 0 and config.options.priority_groups then
+		-- Sort priority groups by number of members (descending)
+		local sorted_groups = {}
+		for name, group in pairs(config.options.priority_groups) do
+			table.insert(sorted_groups, { name = name, group = group })
+		end
+		table.sort(sorted_groups, function(a, b)
+			return #a.group.members > #b.group.members
+		end)
+
+		-- Check each priority group
+		for _, group_data in ipairs(sorted_groups) do
+			local group = group_data.group
+			local all_members_match = true
+
+			-- Check if all group members are in todo's priorities
+			for _, member in ipairs(group.members) do
+				local found = false
+				for _, priority in ipairs(todo.priorities) do
+					if priority == member then
+						found = true
+						break
+					end
+				end
+				if not found then
+					all_members_match = false
+					break
+				end
+			end
+
+			if all_members_match then
+				return group.hl_group or "DooingPending"
+			end
 		end
 	end
+
+	-- Default to pending highlight if no other conditions met
 	return "DooingPending"
 end
 

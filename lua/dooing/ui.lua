@@ -1047,13 +1047,15 @@ function M.delete_todo()
 				if todo.text:match("#" .. state.active_filter) then
 					visible_index = visible_index + 1
 					if visible_index == todo_index - 2 then
-						state.delete_todo(i)
+						todo_index = 1
 						break
 					end
 				end
 			end
 		else
-			state.delete_todo(todo_index)
+			state.delete_todo_with_confirmation(todo_index, win_id, calendar, function()
+				M.render_todos()
+			end)
 		end
 		M.render_todos()
 	end
