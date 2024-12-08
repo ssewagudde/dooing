@@ -19,29 +19,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Pandoc
+      - name: Install pandoc
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v10
         with:
-          python-version: "3.x"
+          luaVersion: "5.4"
+
+      - name: Setup Luarocks
+        uses: leafo/gh-actions-luarocks@v4
 
       - name: Install panvimdoc
         run: |
-          pip install panvimdoc
+          git clone https://github.com/kdheepak/panvimdoc.git
+          cd panvimdoc
+          luarocks make
 
       - name: Build Documentation
         run: |
           mkdir -p doc
-          panvimdoc --input README.md \
-                    --output doc/dooing.txt \
-                    --project-name dooing \
-                    --description "A Minimalist Todo List Manager for Neovim" \
-                    --vim-version 9.0.0 \
-                    --toc
+          panvimdoc \
+            --input README.md \
+            --output doc/dooing.txt \
+            --project-name dooing \
+            --description "A Minimalist Todo List Manager for Neovim" \
+            --vim-version 9.0.0 \
+            --toc
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
