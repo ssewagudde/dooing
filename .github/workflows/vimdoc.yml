@@ -1,0 +1,56 @@
+name: Generate Vim Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "README.md"
+      - "doc/**"
+  pull_request:
+    paths:
+      - "README.md"
+      - "doc/**"
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    name: Generate Vim Documentation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install panvimdoc
+        run: |
+          pip install panvimdoc
+
+      - name: Build Documentation
+        run: |
+          mkdir -p doc
+          panvimdoc --input README.md \
+                    --output doc/dooing.txt \
+                    --project-name dooing \
+                    --description "A Minimalist Todo List Manager for Neovim" \
+                    --vim-version 9.0.0 \
+                    --toc
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "docs: update vim documentation"
+          title: "docs: update vim documentation"
+          body: |
+            Auto-generated Vim documentation from README.md
+            - Generated using panvimdoc
+            - Please review the changes and merge if everything looks correct
+          branch: update-docs
+          delete-branch: true
