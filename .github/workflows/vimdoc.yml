@@ -19,35 +19,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pandoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pandoc
-
-      - name: Setup Lua
-        uses: leafo/gh-actions-lua@v10
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          luaVersion: "5.4"
+          node-version: "18"
 
-      - name: Setup Luarocks
-        uses: leafo/gh-actions-luarocks@v4
+      - name: Install vimdoc
+        run: npm install -g vimdoc
 
-      - name: Install panvimdoc
-        run: |
-          git clone https://github.com/kdheepak/panvimdoc.git
-          cd panvimdoc
-          luarocks make
+      - name: Create docs directory
+        run: mkdir -p doc
 
-      - name: Build Documentation
-        run: |
-          mkdir -p doc
-          panvimdoc \
-            --input README.md \
-            --output doc/dooing.txt \
-            --project-name dooing \
-            --description "A Minimalist Todo List Manager for Neovim" \
-            --vim-version 9.0.0 \
-            --toc
+      - name: Generate Documentation
+        run: vimdoc . -m doc/dooing.txt
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
@@ -55,8 +39,8 @@ jobs:
           commit-message: "docs: update vim documentation"
           title: "docs: update vim documentation"
           body: |
-            Auto-generated Vim documentation from README.md
-            - Generated using panvimdoc
+            Auto-generated Vim documentation
+            - Generated using vimdoc
             - Please review the changes and merge if everything looks correct
           branch: update-docs
           delete-branch: true
