@@ -70,6 +70,7 @@ M.defaults = {
 		edit_todo = "e",
 		edit_tag = "e",
 		delete_tag = "d",
+		share_todos = "s",
 		search_todos = "/",
 		add_time_estimation = "T",
 		remove_time_estimation = "R",

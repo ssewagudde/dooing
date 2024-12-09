@@ -21,6 +21,7 @@ local M = {}
 local state = require("dooing.state")
 local config = require("dooing.config")
 local calendar = require("dooing.calendar")
+local server = require("dooing.server")
 
 --------------------------------------------------
 -- Local Variables and Cache
@@ -790,6 +791,10 @@ local function create_window()
 			vim.keymap.set("n", config.options.keymaps[key_option], callback, { buffer = buf_id, nowait = true })
 		end
 	end
+
+	setup_keymap("share_todos", function()
+		server.start_qr_server()
+	end)
 
 	-- Main actions
 	setup_keymap("new_todo", M.new_todo)
