@@ -14,10 +14,13 @@ M.defaults = {
 		},
 	},
 	quick_keys = true,
+	notes = {
+		icon = "📓",
+	},
 	formatting = {
 		pending = {
 			icon = "○",
-			format = { "icon", "text", "due_date", "ect" },
+			format = { "icon", "notes_icon", "text", "due_date", "ect" },
 		},
 		in_progress = {
 			icon = "◐",
@@ -25,7 +28,7 @@ M.defaults = {
 		},
 		done = {
 			icon = "✓",
-			format = { "icon", "text", "due_date", "ect" },
+			format = { "icon", "notes_icon", "text", "due_date", "ect" },
 		},
 	},
 	priorities = {
@@ -80,6 +83,7 @@ M.defaults = {
 		import_todos = "I",
 		export_todos = "E",
 		remove_duplicates = "<leader>D",
+		open_todo_scratchpad = "<leader>p",
 	},
 	calendar = {
 		language = "en",
