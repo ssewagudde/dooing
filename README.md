@@ -102,8 +102,28 @@ Dooing comes with sensible defaults that you can override:
         edit_tag = "e",              -- Edit tag [on tag window]
         delete_tag = "d",            -- Delete tag [on tag window]
         search_todo = "/",           -- Toggle todo searching
-        toggle_priority = "<Space>"  -- Toggle todo priority on creation
+        import_todos = "I",          -- Import todos from a JSON file
+        export_todos = "E",          -- Export all todos in a JSON file
+        remove_duplicates = "<leader>D",    -- Removes all duplicated todos
+		open_todo_scratchpad = "<leader>p",
+		add_time_estimation = "T",
+		remove_time_estimation = "R",
     },
+
+	calendar = {
+		language = "en",
+		icon = "",
+		keymaps = {
+			previous_day = "h",
+			next_day = "l",
+			previous_week = "k",
+			next_week = "j",
+			previous_month = "H",
+			next_month = "L",
+			select_day = "<CR>",
+			close_calendar = "q",
+		},
+	},
 
     -- Priority settings
     priorities = {                   -- Define available priorities
@@ -134,44 +154,6 @@ Dooing comes with sensible defaults that you can override:
         },
     },
     hour_score_value = 1/8,         -- Priority score adjustment based on estimated hours
-
-    -- Default keymaps
-	keymaps = {
-		toggle_window = "<leader>td",
-		new_todo = "i",
-		toggle_todo = "x",
-		delete_todo = "d",
-		delete_completed = "D",
-		close_window = "q",
-		add_due_date = "H",
-		remove_due_date = "r",
-		toggle_help = "?",
-		toggle_tags = "t",
-		clear_filter = "c",
-		edit_todo = "e",
-		edit_tag = "e",
-		delete_tag = "d",
-		search_todos = "/",
-		import_todos = "I",
-		export_todos = "E",
-		remove_duplicates = "<leader>D",
-	},
-
-    -- Calendar options
-	calendar = {
-		language = "en",
-		icon = "",
-		keymaps = {
-			previous_day = "h",
-			next_day = "l",
-			previous_week = "k",
-			next_week = "j",
-			previous_month = "H",
-			next_month = "L",
-			select_day = "<CR>",
-			close_calendar = "q",
-		},
-	},
 }
 ```
 
@@ -194,26 +176,28 @@ Dooing provides several commands for task management:
 Dooing comes with intuitive keybindings:
 
 #### Main Window
-| Key           | Action                      |
-|--------------|----------------------------|
-| `<leader>td` | Toggle todo window         |
-| `i`          | Add new todo               |
-| `x`          | Toggle todo status         |
-| `d`          | Delete current todo        |
-| `D`          | Delete all completed todos |
-| `q`          | Close window               |
-| `H`          | Add due date               |
-| `r`          | Remove due date            |
-| `?`          | Toggle help window         |
-| `t`          | Toggle tags window         |
-| `c`          | Clear active tag filter    |
-| `e`          | Edit todo                  |
-| `/`          | Toggle todo searching      |
-| `I`          | Import todos               |
-| `E`          | Export todos               |
-| `<leader>D`  | Remove duplicates          |
-
-
+| Key           | Action                        |
+|--------------|------------------------------|
+| `<leader>td` | Toggle todo window           |
+| `i`          | Add new todo                 |
+| `x`          | Toggle todo status           |
+| `d`          | Delete current todo          |
+| `D`          | Delete all completed todos   |
+| `q`          | Close window                 |
+| `H`          | Add due date                 |
+| `r`          | Remove due date              |
+| `T`          | Add time estimation          |
+| `R`          | Remove time estimation       |
+| `?`          | Toggle help window           |
+| `t`          | Toggle tags window           |
+| `c`          | Clear active tag filter      |
+| `e`          | Edit todo                    |
+| `u`          | Undo delete                  |
+| `/`          | Search todos                 |
+| `I`          | Import todos                 |
+| `E`          | Export todos                 |
+| `<leader>D`  | Remove duplicates            |
+| `<Space>`    | Toggle priority (creation)   |
 
 #### Tags Window
 | Key    | Action        |
@@ -289,7 +273,7 @@ Dooing was built with the Neovim community in mind. Special thanks to all the de
 
 ---
 
-## My All plugins
+## All my plugins
 | Repository | Description | Stars |
 |------------|-------------|-------|
 | [LazyClip](https://github.com/atiladefreitas/lazyclip) | A Simple Clipboard Manager | ![Stars](https://img.shields.io/github/stars/atiladefreitas/lazyclip?style=social) |
