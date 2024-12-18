@@ -73,6 +73,24 @@ local function setup_highlights()
 	highlight_cache.help = "DooingHelpText"
 end
 
+-- Helper function to clean up priority selection resources
+local function cleanup_priority_selection(select_buf, select_win, keymaps)
+	-- Remove all keymaps
+	for _, keymap in ipairs(keymaps) do
+		pcall(vim.keymap.del, "n", keymap, { buffer = select_buf })
+	end
+
+	-- Close window if it's still valid
+	if select_win and vim.api.nvim_win_is_valid(select_win) then
+		vim.api.nvim_win_close(select_win, true)
+	end
+
+	-- Delete buffer if it still exists
+	if select_buf and vim.api.nvim_buf_is_valid(select_buf) then
+		vim.api.nvim_buf_delete(select_buf, { force = true })
+	end
+end
+
 -- Get highlight group for a set of priorities
 local function get_priority_highlight(priorities)
 	if not priorities or #priorities == 0 then
@@ -1129,6 +1147,14 @@ function M.new_todo()
 				local row = math.floor((ui.height - height) / 2)
 				local col = math.floor((ui.width - width) / 2)
 
+				-- Store keymaps for cleanup
+				local keymaps = {
+					config.options.keymaps.toggle_priority,
+					"<CR>",
+					"q",
+					"<Esc>",
+				}
+
 				local select_win = vim.api.nvim_open_win(select_buf, true, {
 					relative = "editor",
 					width = width,
@@ -1149,6 +1175,10 @@ function M.new_todo()
 
 				-- Add keymaps for selection
 				vim.keymap.set("n", config.options.keymaps.toggle_priority, function()
+					if not (select_win and vim.api.nvim_win_is_valid(select_win)) then
+						return
+					end
+
 					local cursor = vim.api.nvim_win_get_cursor(select_win)
 					local line_num = cursor[1]
 					local current_line = vim.api.nvim_buf_get_lines(select_buf, line_num - 1, line_num, false)[1]
@@ -1170,47 +1200,59 @@ function M.new_todo()
 
 				-- Add keymap for confirmation
 				vim.keymap.set("n", "<CR>", function()
+					if not (select_win and vim.api.nvim_win_is_valid(select_win)) then
+						return
+					end
+
 					local selected_priority_names = {}
 					for idx, _ in pairs(selected_priorities) do
-						-- Get the priority name from the config using the index
 						local priority = config.options.priorities[idx]
 						if priority then
 							table.insert(selected_priority_names, priority.name)
 						end
 					end
 
-					-- Close selection window
-					vim.api.nvim_win_close(select_win, true)
+					-- Clean up resources before proceeding
+					cleanup_priority_selection(select_buf, select_win, keymaps)
 
-					-- Add todo with priority names (or nil if none selected)
+					-- Add todo with priority names
 					local priorities_to_add = #selected_priority_names > 0 and selected_priority_names or nil
 					state.add_todo(input, priorities_to_add)
 					M.render_todos()
 
-					-- Position cursor logic...
+					-- Position cursor at the new todo
 					local total_lines = vim.api.nvim_buf_line_count(buf_id)
 					local target_line = nil
-					local last_uncompleted_line = nil
-
 					for i = 1, total_lines do
 						local line = vim.api.nvim_buf_get_lines(buf_id, i - 1, i, false)[1]
-						if line:match("^%s+[" .. config.options.formatting.pending.icon .. "]") then
-							last_uncompleted_line = i
-						end
-						if line:match("^%s+[" .. config.options.formatting.done.icon .. "].*~") then
+						if line:match("^%s+" .. config.options.formatting.done.icon .. ".*~") then
 							target_line = i - 1
 							break
 						end
 					end
 
-					if not target_line and last_uncompleted_line then
-						target_line = last_uncompleted_line
-					end
-
-					if target_line then
+					if target_line and win_id and vim.api.nvim_win_is_valid(win_id) then
 						vim.api.nvim_win_set_cursor(win_id, { target_line, 0 })
 					end
-				end)
+				end, { buffer = select_buf, nowait = true })
+
+				-- Add escape/quit keymaps
+				local function close_window()
+					cleanup_priority_selection(select_buf, select_win, keymaps)
+				end
+
+				vim.keymap.set("n", "q", close_window, { buffer = select_buf, nowait = true })
+				vim.keymap.set("n", "<Esc>", close_window, { buffer = select_buf, nowait = true })
+
+				-- Add autocmd for cleanup when leaving buffer
+				vim.api.nvim_create_autocmd("BufLeave", {
+					buffer = select_buf,
+					callback = function()
+						cleanup_priority_selection(select_buf, select_win, keymaps)
+						return true -- Remove the autocmd after execution
+					end,
+					once = true,
+				})
 			else
 				-- If prioritization is disabled, just add the todo without priority
 				state.add_todo(input)
