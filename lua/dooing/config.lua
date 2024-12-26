@@ -99,6 +99,9 @@ M.defaults = {
 			close_calendar = "q",
 		},
 	},
+  scratchpad = {
+    syntax_highlight = "markdown",
+  },
 }
 
 M.options = {}

@@ -681,9 +681,22 @@ local function open_todo_scratchpad()
 		todo.notes = ""
 	end
 
+  local function is_valid_filetype(filetype)
+      local syntax_file = vim.fn.globpath(vim.o.runtimepath, "syntax/" .. filetype .. ".vim")
+      return syntax_file ~= ""
+  end
+
 	local scratch_buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_option(scratch_buf, "buftype", "acwrite")
 	vim.api.nvim_buf_set_option(scratch_buf, "swapfile", false)
+
+  local syntax_highlight = config.options.scratchpad.syntax_highlight
+  if not is_valid_filetype(syntax_highlight) then
+      vim.notify("Invalid scratchpad syntax highlight '" .. syntax_highlight .. "'. Using default 'markdown'.", vim.log.levels.WARN)
+      syntax_highlight = "markdown"
+  end
+
+  vim.api.nvim_buf_set_option(scratch_buf, "filetype", syntax_highlight)
 
 	local ui = vim.api.nvim_list_uis()[1]
 	local width = math.floor(ui.width * 0.6)
