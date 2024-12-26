@@ -67,79 +67,85 @@ Dooing comes with sensible defaults that you can override:
     formatting = {
         pending = {
             icon = "○",
+            format = { "icon", "notes_icon", "text", "due_date", "ect" },
+        },
+        in_progress = {
+            icon = "◐",
             format = { "icon", "text", "due_date", "ect" },
         },
         done = {
             icon = "✓",
-            format = { "icon", "text", "due_date", "ect" },
+            format = { "icon", "notes_icon", "text", "due_date", "ect" },
         },
     },
 
-	quick_keys = true, -- Quick keys window
+    quick_keys = true,      -- Quick keys window
     
-    -- Icons
-    icons = {
-        pending = '○',      -- Pending todo icon
-        done = '✓',        -- Completed todo icon
-        calendar = '',    -- Calendar icon
+    notes = {
+        icon = "📓",
+    },
+
+    scratchpad = {
+        syntax_highlight = "markdown",
     },
     
     -- Keymaps
     keymaps = {
-        toggle_window = "<leader>td", -- Toggle the main window
-        new_todo = "i",              -- Add a new todo
-        toggle_todo = "x",           -- Toggle todo status
-        delete_todo = "d",           -- Delete the current todo
-        delete_completed = "D",      -- Delete all completed todos
-        close_window = "q",          -- Close the window
-        add_due_date = "h",          -- Add due date to todo
-        remove_due_date = "r",       -- Remove due date from todo
-        toggle_help = "?",           -- Toggle help window
-        toggle_tags = "t",           -- Toggle tags window
-		undo_delete = "u",           -- Undo delete 
-        clear_filter = "c",          -- Clear active tag filter
-        edit_todo = "e",             -- Edit todo item
-        edit_tag = "e",              -- Edit tag [on tag window]
-        delete_tag = "d",            -- Delete tag [on tag window]
-        search_todo = "/",           -- Toggle todo searching
-        import_todos = "I",          -- Import todos from a JSON file
-        export_todos = "E",          -- Export all todos in a JSON file
-        remove_duplicates = "<leader>D",    -- Removes all duplicated todos
-		open_todo_scratchpad = "<leader>p",
-		add_time_estimation = "T",
-		remove_time_estimation = "R",
+        toggle_window = "<leader>td",
+        new_todo = "i",
+        toggle_todo = "x",
+        delete_todo = "d",
+        delete_completed = "D",
+        close_window = "q",
+        undo_delete = "u",
+        add_due_date = "H",
+        remove_due_date = "r",
+        toggle_help = "?",
+        toggle_tags = "t",
+        toggle_priority = "<Space>",
+        clear_filter = "c",
+        edit_todo = "e",
+        edit_tag = "e",
+        delete_tag = "d",
+        search_todos = "/",
+        add_time_estimation = "T",
+        remove_time_estimation = "R",
+        import_todos = "I",
+        export_todos = "E",
+        remove_duplicates = "<leader>D",
+        open_todo_scratchpad = "<leader>p",
     },
 
-	calendar = {
-		language = "en",
-		icon = "",
-		keymaps = {
-			previous_day = "h",
-			next_day = "l",
-			previous_week = "k",
-			next_week = "j",
-			previous_month = "H",
-			next_month = "L",
-			select_day = "<CR>",
-			close_calendar = "q",
-		},
-	},
+    calendar = {
+        language = "en",
+        icon = "",
+        keymaps = {
+            previous_day = "h",
+            next_day = "l",
+            previous_week = "k",
+            next_week = "j",
+            previous_month = "H",
+            next_month = "L",
+            select_day = "<CR>",
+            close_calendar = "q",
+        },
+    },
 
     -- Priority settings
-    priorities = {                   -- Define available priorities
+    priorities = {
         {
             name = "important",
-            weight = 4,              -- Higher weight = higher priority
+            weight = 4,
         },
         {
             name = "urgent",
             weight = 2,
         },
     },
-    priority_groups = {              -- Define highlight groups for priority combinations
+    priority_groups = {
         high = {
             members = { "important", "urgent" },
-            color = nil,             -- Custom color (hex) or nil to use hl_group
+            color = nil,
             hl_group = "DiagnosticError",
         },
         medium = {
@@ -153,7 +159,7 @@ Dooing comes with sensible defaults that you can override:
             hl_group = "DiagnosticInfo",
         },
     },
-    hour_score_value = 1/8,         -- Priority score adjustment based on estimated hours
+    hour_score_value = 1/8,
 }
 ```
 
@@ -197,7 +203,8 @@ Dooing comes with intuitive keybindings:
 | `I`          | Import todos                 |
 | `E`          | Export todos                 |
 | `<leader>D`  | Remove duplicates            |
-| `<Space>`    | Toggle priority (creation)   |
+| `<Space>`    | Toggle priority              |
+| `<leader>p`  | Open todo scratchpad         |
 
 #### Tags Window
 | Key    | Action        |

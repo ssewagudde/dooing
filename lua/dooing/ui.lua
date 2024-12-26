@@ -203,7 +203,7 @@ create_help_window = function()
 	help_buf_id = vim.api.nvim_create_buf(false, true)
 
 	local width = 50
-	local height = 20
+	local height = 40
 	local ui = vim.api.nvim_list_uis()[1]
 	local col = math.floor((ui.width - width) / 2) + width + 2
 	local row = math.floor((ui.height - height) / 2)
@@ -236,18 +236,29 @@ create_help_window = function()
 		" t           - Toggle tags window",
 		" c           - Clear active tag filter",
 		" e           - Edit to-do item",
-		" u           - Undo deletition",
+		" u           - Undo deletion",
 		" /           - Search todos",
 		" I           - Import todos",
 		" E           - Export todos",
 		" <leader>D   - Remove duplicates",
 		" <leader>p   - Open todo scratchpad",
+		" <Space>     - Toggle priority",
 		" ",
 		" Tags window:",
 		" e     - Edit tag",
 		" d     - Delete tag",
 		" <CR>  - Filter by tag",
 		" q     - Close window",
+		" ",
+		" Calendar window:",
+		" h     - Previous day",
+		" l     - Next day",
+		" k     - Previous week",
+		" j     - Next week",
+		" H     - Previous month",
+		" L     - Next month",
+		" <CR>  - Select date",
+		" q     - Close calendar",
 		" ",
 	}
 
