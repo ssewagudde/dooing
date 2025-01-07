@@ -52,6 +52,7 @@ local search_buf_id = nil
 local create_help_window
 local create_tag_window
 local edit_todo
+local edit_priorities
 
 --------------------------------------------------
 -- Highlights Setup
@@ -187,6 +188,154 @@ edit_todo = function()
 	end
 end
 
+-- Handles editing priorities
+edit_priorities = function()
+	local cursor = vim.api.nvim_win_get_cursor(win_id)
+	local todo_index = cursor[1] - 1
+	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
+	local done_icon = config.options.formatting.done.icon
+	local pending_icon = config.options.formatting.pending.icon
+	local in_progress_icon = config.options.formatting.in_progress.icon
+
+	if line_content:match("^%s+[" .. done_icon .. pending_icon .. in_progress_icon .. "]") then
+		if state.active_filter then
+			local visible_index = 0
+			for i, todo in ipairs(state.todos) do
+				if todo.text:match("#" .. state.active_filter) then
+					visible_index = visible_index + 1
+					if visible_index == todo_index - 2 then
+						todo_index = i
+						break
+					end
+				end
+			end
+		end
+
+		-- Check if priorities are configured
+		if config.options.priorities and #config.options.priorities > 0 then
+			local priorities = config.options.priorities
+			local priority_options = {}
+			local selected_priorities = {}
+			local current_todo = state.todos[todo_index]
+
+			-- Pre-select existing priorities
+			for i, priority in ipairs(priorities) do
+				local is_selected = false
+				if current_todo.priorities then
+					for _, existing_priority in ipairs(current_todo.priorities) do
+						if existing_priority == priority.name then
+							is_selected = true
+							selected_priorities[i] = true
+							break
+						end
+					end
+				end
+				priority_options[i] = string.format("[%s] %s", is_selected and "x" or " ", priority.name)
+			end
+
+			-- Create buffer for priority selection
+			local select_buf = vim.api.nvim_create_buf(false, true)
+			local ui = vim.api.nvim_list_uis()[1]
+			local width = 40
+			local height = #priority_options + 2
+			local row = math.floor((ui.height - height) / 2)
+			local col = math.floor((ui.width - width) / 2)
+
+			-- Store keymaps for cleanup
+			local keymaps = {
+				config.options.keymaps.toggle_priority,
+				"<CR>",
+				"q",
+				"<Esc>",
+			}
+
+			local select_win = vim.api.nvim_open_win(select_buf, true, {
+				relative = "editor",
+				width = width,
+				height = height,
+				row = row,
+				col = col,
+				style = "minimal",
+				border = "rounded",
+				title = " Edit Priorities ",
+				title_pos = "center",
+				footer = string.format(" %s: toggle | <Enter>: confirm ", config.options.keymaps.toggle_priority),
+				footer_pos = "center",
+			})
+
+			-- Set buffer content
+			vim.api.nvim_buf_set_lines(select_buf, 0, -1, false, priority_options)
+			vim.api.nvim_buf_set_option(select_buf, "modifiable", false)
+
+			-- Add keymaps for selection
+			vim.keymap.set("n", config.options.keymaps.toggle_priority, function()
+				if not (select_win and vim.api.nvim_win_is_valid(select_win)) then
+					return
+				end
+
+				local cursor = vim.api.nvim_win_get_cursor(select_win)
+				local line_num = cursor[1]
+				local current_line = vim.api.nvim_buf_get_lines(select_buf, line_num - 1, line_num, false)[1]
+
+				vim.api.nvim_buf_set_option(select_buf, "modifiable", true)
+				if current_line:match("^%[%s%]") then
+					-- Select item
+					local new_line = current_line:gsub("^%[%s%]", "[x]")
+					selected_priorities[line_num] = true
+					vim.api.nvim_buf_set_lines(select_buf, line_num - 1, line_num, false, { new_line })
+				else
+					-- Deselect item
+					local new_line = current_line:gsub("^%[x%]", "[ ]")
+					selected_priorities[line_num] = nil
+					vim.api.nvim_buf_set_lines(select_buf, line_num - 1, line_num, false, { new_line })
+				end
+				vim.api.nvim_buf_set_option(select_buf, "modifiable", false)
+			end, { buffer = select_buf, nowait = true })
+
+			-- Add keymap for confirmation
+			vim.keymap.set("n", "<CR>", function()
+				if not (select_win and vim.api.nvim_win_is_valid(select_win)) then
+					return
+				end
+
+				local selected_priority_names = {}
+				for idx, _ in pairs(selected_priorities) do
+					local priority = config.options.priorities[idx]
+					if priority then
+						table.insert(selected_priority_names, priority.name)
+					end
+				end
+
+				-- Clean up resources before proceeding
+				cleanup_priority_selection(select_buf, select_win, keymaps)
+
+				-- Update todo priorities
+				state.todos[todo_index].priorities = #selected_priority_names > 0 and selected_priority_names or nil
+				state.save_todos()
+				M.render_todos()
+			end, { buffer = select_buf, nowait = true })
+
+			-- Add escape/quit keymaps
+			local function close_window()
+				cleanup_priority_selection(select_buf, select_win, keymaps)
+			end
+
+			vim.keymap.set("n", "q", close_window, { buffer = select_buf, nowait = true })
+			vim.keymap.set("n", "<Esc>", close_window, { buffer = select_buf, nowait = true })
+
+			-- Add autocmd for cleanup when leaving buffer
+			vim.api.nvim_create_autocmd("BufLeave", {
+				buffer = select_buf,
+				callback = function()
+					cleanup_priority_selection(select_buf, select_win, keymaps)
+					return true
+				end,
+				once = true,
+			})
+		end
+	end
+end
+
 --------------------------------------------------
 -- Core Window Management
 --------------------------------------------------
@@ -221,45 +370,47 @@ create_help_window = function()
 		zindex = 100,
 	})
 
+	local keys = config.options.keymaps
 	local help_content = {
 		" Main window:",
-		" i           - Add new to-do",
-		" x           - Toggle to-do status",
-		" d           - Delete current to-do",
-		" D           - Delete all completed todos",
-		" q           - Close window",
-		" H           - Add due date to to-do ",
-		" r           - Remove to-do due date",
-		" T           - Add time estimation",
-		" R           - Remove time estimation",
-		" ?           - Toggle this help window",
-		" t           - Toggle tags window",
-		" c           - Clear active tag filter",
-		" e           - Edit to-do item",
-		" u           - Undo deletion",
-		" /           - Search todos",
-		" I           - Import todos",
-		" E           - Export todos",
-		" <leader>D   - Remove duplicates",
-		" <leader>p   - Open todo scratchpad",
-		" <Space>     - Toggle priority",
-		" ",
+		string.format(" %-12s - Add new to-do", keys.new_todo),
+		string.format(" %-12s - Toggle to-do status", keys.toggle_todo),
+		string.format(" %-12s - Delete current to-do", keys.delete_todo),
+		string.format(" %-12s - Delete all completed todos", keys.delete_completed),
+		string.format(" %-12s - Close window", keys.close_window),
+		string.format(" %-12s - Add due date to to-do", keys.add_due_date),
+		string.format(" %-12s - Remove to-do due date", keys.remove_due_date),
+		string.format(" %-12s - Add time estimation", keys.add_time_estimation),
+		string.format(" %-12s - Remove time estimation", keys.remove_time_estimation),
+		string.format(" %-12s - Toggle this help window", keys.toggle_help),
+		string.format(" %-12s - Toggle tags window", keys.toggle_tags),
+		string.format(" %-12s - Clear active tag filter", keys.clear_filter),
+		string.format(" %-12s - Edit to-do item", keys.edit_todo),
+		string.format(" %-12s - Edit to-do priorities", keys.edit_priorities),
+		string.format(" %-12s - Undo deletion", keys.undo_delete),
+		string.format(" %-12s - Search todos", keys.search_todos),
+		string.format(" %-12s - Import todos", keys.import_todos),
+		string.format(" %-12s - Export todos", keys.export_todos),
+		string.format(" %-12s - Remove duplicates", keys.remove_duplicates),
+		string.format(" %-12s - Open todo scratchpad", keys.open_todo_scratchpad),
+		string.format(" %-12s - Toggle priority", keys.toggle_priority),
+		"",
 		" Tags window:",
-		" e     - Edit tag",
-		" d     - Delete tag",
-		" <CR>  - Filter by tag",
-		" q     - Close window",
-		" ",
+		string.format(" %-12s - Edit tag", keys.edit_tag),
+		string.format(" %-12s - Delete tag", keys.delete_tag),
+		string.format(" %-12s - Filter by tag", " <CR>"),
+		string.format(" %-12s - Close window", keys.close_window),
+		"",
 		" Calendar window:",
-		" h     - Previous day",
-		" l     - Next day",
-		" k     - Previous week",
-		" j     - Next week",
-		" H     - Previous month",
-		" L     - Next month",
-		" <CR>  - Select date",
-		" q     - Close calendar",
-		" ",
+		string.format(" %-12s - Previous day", config.options.calendar.keymaps.previous_day),
+		string.format(" %-12s - Next day", config.options.calendar.keymaps.next_day),
+		string.format(" %-12s - Previous week", config.options.calendar.keymaps.previous_week),
+		string.format(" %-12s - Next week", config.options.calendar.keymaps.next_week),
+		string.format(" %-12s - Previous month", config.options.calendar.keymaps.previous_month),
+		string.format(" %-12s - Next month", config.options.calendar.keymaps.next_month),
+		string.format(" %-12s - Select date", config.options.calendar.keymaps.select_day),
+		string.format(" %-12s - Close calendar", config.options.calendar.keymaps.close_calendar),
+		"",
 	}
 
 	vim.api.nvim_buf_set_lines(help_buf_id, 0, -1, false, help_content)
@@ -692,22 +843,25 @@ local function open_todo_scratchpad()
 		todo.notes = ""
 	end
 
-  local function is_valid_filetype(filetype)
-      local syntax_file = vim.fn.globpath(vim.o.runtimepath, "syntax/" .. filetype .. ".vim")
-      return syntax_file ~= ""
-  end
+	local function is_valid_filetype(filetype)
+		local syntax_file = vim.fn.globpath(vim.o.runtimepath, "syntax/" .. filetype .. ".vim")
+		return syntax_file ~= ""
+	end
 
 	local scratch_buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_option(scratch_buf, "buftype", "acwrite")
 	vim.api.nvim_buf_set_option(scratch_buf, "swapfile", false)
 
-  local syntax_highlight = config.options.scratchpad.syntax_highlight
-  if not is_valid_filetype(syntax_highlight) then
-      vim.notify("Invalid scratchpad syntax highlight '" .. syntax_highlight .. "'. Using default 'markdown'.", vim.log.levels.WARN)
-      syntax_highlight = "markdown"
-  end
+	local syntax_highlight = config.options.scratchpad.syntax_highlight
+	if not is_valid_filetype(syntax_highlight) then
+		vim.notify(
+			"Invalid scratchpad syntax highlight '" .. syntax_highlight .. "'. Using default 'markdown'.",
+			vim.log.levels.WARN
+		)
+		syntax_highlight = "markdown"
+	end
 
-  vim.api.nvim_buf_set_option(scratch_buf, "filetype", syntax_highlight)
+	vim.api.nvim_buf_set_option(scratch_buf, "filetype", syntax_highlight)
 
 	local ui = vim.api.nvim_list_uis()[1]
 	local width = math.floor(ui.width * 0.6)
@@ -768,27 +922,28 @@ local function create_small_keys_window(main_win_pos)
 		return nil
 	end
 
+	local keys = config.options.keymaps
 	local small_buf = vim.api.nvim_create_buf(false, true)
 	local width = config.options.window.width
 
 	-- Define two separate line arrays for each column
 	local lines_1 = {
 		"",
-		"  i - New todo",
-		"  x - Toggle todo",
-		"  d - Delete todo",
-		"  u - Undo delete",
-		"  H - Add due date",
+		string.format("  %-6s - New todo", keys.new_todo),
+		string.format("  %-6s - Toggle todo", keys.toggle_todo),
+		string.format("  %-6s - Delete todo", keys.delete_todo),
+		string.format("  %-6s - Undo delete", keys.undo_delete),
+		string.format("  %-6s - Add due date", keys.add_due_date),
 		"",
 	}
 
 	local lines_2 = {
 		"",
-		"  T - Add time",
-		"  t - Tags",
-		"  / - Search",
-		"  I - Import",
-		"  E - Export",
+		string.format("  %-6s - Add time", keys.add_time_estimation),
+		string.format("  %-6s - Tags", keys.toggle_tags),
+		string.format("  %-6s - Search", keys.search_todos),
+		string.format("  %-6s - Import", keys.import_todos),
+		string.format("  %-6s - Export", keys.export_todos),
 		"",
 	}
 
@@ -930,6 +1085,7 @@ local function create_window()
 
 	-- Todo editing and management
 	setup_keymap("edit_todo", edit_todo)
+	setup_keymap("edit_priorities", edit_priorities)
 	setup_keymap("add_due_date", add_due_date)
 	setup_keymap("remove_due_date", remove_due_date)
 	setup_keymap("add_time_estimation", add_time_estimation)
@@ -1051,7 +1207,6 @@ function M.render_todos()
 	local notes_icon = config.options.notes.icon
 	local tmp_notes_icon = ""
 	local in_progress_icon = config.options.formatting.in_progress.icon
-
 
 	-- Loop through all todos and render them using the format
 	for _, todo in ipairs(state.todos) do
