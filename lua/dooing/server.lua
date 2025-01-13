@@ -143,15 +143,16 @@ function M.start_qr_server()
 			" " .. url,
 			"",
 			" Make sure your phone is on the same network",
-			" Press 'q' to stop server",
+			" [q] to close window and stop server",
+			" [e] to exit and keep server running",
 			"",
 		})
 
 		local win = api.nvim_open_win(buf, true, {
 			relative = "editor",
 			width = 50,
-			height = 7,
-			row = math.floor((vim.o.lines - 7) / 2),
+			height = 8,
+			row = math.floor((vim.o.lines - 8) / 2),
 			col = math.floor((vim.o.columns - 50) / 2),
 			style = "minimal",
 			border = "rounded",
@@ -163,6 +164,12 @@ function M.start_qr_server()
 			api.nvim_win_close(win, true)
 			server:close()
 			debug_log("Server stopped by user")
+		end, { buffer = buf, nowait = true })
+
+		vim.keymap.set("n", "e", function()
+			api.nvim_win_close(win, true)
+			debug_log("Window closed, server still running")
+			vim.notify("Server still running at " .. url, vim.log.levels.INFO)
 		end, { buffer = buf, nowait = true })
 
 		vim.defer_fn(function()
