@@ -14,6 +14,7 @@ Dooing is a minimalist todo list manager for Neovim, designed with simplicity an
 - 💾 **Persistent storage** of your todos
 - 🎨 Adapts to your Neovim **colorscheme**
 - 🛠️ Compatible with **Lazy.nvim** for effortless installation
+- ⏰ **Relative timestamps** showing when todos were created
 
 ---
 
@@ -49,6 +50,11 @@ Dooing comes with sensible defaults that you can override:
 {
     -- Core settings
     save_path = vim.fn.stdpath("data") .. "/dooing_todos.json",
+
+    -- Timestamp settings
+    timestamp = {
+        enabled = true,  -- Show relative timestamps (e.g., @5m ago, @2h ago)
+    },
 
     -- Window settings
     window = {
@@ -88,7 +94,7 @@ Dooing comes with sensible defaults that you can override:
     scratchpad = {
         syntax_highlight = "markdown",
     },
-    
+
     -- Keymaps
     keymaps = {
         toggle_window = "<leader>td",

@@ -68,6 +68,7 @@ local function setup_highlights()
 	vim.api.nvim_set_hl(0, "DooingPending", { link = "Question", default = true })
 	vim.api.nvim_set_hl(0, "DooingDone", { link = "Comment", default = true })
 	vim.api.nvim_set_hl(0, "DooingHelpText", { link = "Directory", default = true })
+	vim.api.nvim_set_hl(0, "DooingTimestamp", { link = "Comment", default = true }) -- Add timestamp highlight in blue
 
 	-- Cache the base highlight groups
 	highlight_cache.pending = "DooingPending"
@@ -1107,6 +1108,35 @@ end
 -- Public Interface
 --------------------------------------------------
 
+-- Helper function to format relative time
+local function format_relative_time(timestamp)
+	local now = os.time()
+	local diff = now - timestamp
+
+	-- Less than a minute
+	if diff < 60 then
+		return "just now"
+	end
+	-- Less than an hour
+	if diff < 3600 then
+		local mins = math.floor(diff / 60)
+		return mins .. "m ago"
+	end
+	-- Less than a day
+	if diff < 86400 then
+		local hours = math.floor(diff / 3600)
+		return hours .. "h ago"
+	end
+	-- Less than a week
+	if diff < 604800 then
+		local days = math.floor(diff / 86400)
+		return days .. "d ago"
+	end
+	-- More than a week
+	local weeks = math.floor(diff / 604800)
+	return weeks .. "w ago"
+end
+
 -- Helper function for formatting based on format config
 local function render_todo(todo, formatting, lang, notes_icon)
 	if not formatting or not formatting.pending or not formatting.done then
@@ -1118,7 +1148,7 @@ local function render_todo(todo, formatting, lang, notes_icon)
 	-- Get config formatting
 	local format = todo.done and formatting.done.format or formatting.pending.format
 	if not format then
-		format = { "notes_icon", "icon", "text", "ect" } -- Default format: notes icon, icon, text, and estimated completion time
+		format = { "notes_icon", "icon", "text", "ect", "relative_time" }
 	end
 
 	-- Breakdown config format and get dynamic text based on other configs
@@ -1137,6 +1167,10 @@ local function render_todo(todo, formatting, lang, notes_icon)
 			table.insert(components, todo.text)
 		elseif part == "notes_icon" then
 			table.insert(components, notes_icon)
+		elseif part == "relative_time" then
+			if todo.created_at and config.options.timestamp and config.options.timestamp.enabled then
+				table.insert(components, "@" .. format_relative_time(todo.created_at))
+			end
 		elseif part == "due_date" then
 			-- Format due date if exists
 			if todo.due_at then
@@ -1275,6 +1309,15 @@ function M.render_todos()
 				-- Due date and overdue highlights
 				highlight_pattern(line, line_nr, "%[@%d+/%d+/%d+%]", "Comment")
 				highlight_pattern(line, line_nr, "%[OVERDUE%]", "ErrorMsg")
+
+				-- Timestamp highlight
+				if config.options.timestamp and config.options.timestamp.enabled then
+					local timestamp_pattern = "@[%w%s]+ago"
+					local start_idx = line:find(timestamp_pattern)
+					if start_idx then
+						add_hl(line_nr, start_idx - 1, start_idx + #line:match(timestamp_pattern), "DooingTimestamp")
+					end
+				end
 			end
 		elseif line:match("Filtered by:") then
 			add_hl(line_nr, 0, -1, "WarningMsg")
