@@ -6,6 +6,7 @@ M.defaults = {
 		width = 55,
 		height = 20,
 		border = "rounded",
+		position = "center",
 		padding = {
 			top = 1,
 			bottom = 1,

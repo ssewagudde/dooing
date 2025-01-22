@@ -1010,8 +1010,39 @@ local function create_window()
 	local ui = vim.api.nvim_list_uis()[1]
 	local width = config.options.window.width
 	local height = config.options.window.height
-	local col = math.floor((ui.width - width) / 2)
-	local row = math.floor((ui.height - height) / 2)
+	local position = config.options.window.position or "right"
+	local padding = 2 -- padding from screen edges
+	
+	-- Calculate position based on config
+	local col, row
+	if position == "right" then
+		col = ui.width - width - padding
+		row = math.floor((ui.height - height) / 2)
+	elseif position == "left" then
+		col = padding
+		row = math.floor((ui.height - height) / 2)
+	elseif position == "top" then
+		col = math.floor((ui.width - width) / 2)
+		row = padding
+	elseif position == "bottom" then
+		col = math.floor((ui.width - width) / 2)
+		row = ui.height - height - padding
+	elseif position == "top-right" then
+		col = ui.width - width - padding
+		row = padding
+	elseif position == "top-left" then
+		col = padding
+		row = padding
+	elseif position == "bottom-right" then
+		col = ui.width - width - padding
+		row = ui.height - height - padding
+	elseif position == "bottom-left" then
+		col = padding
+		row = ui.height - height - padding
+	else -- center or invalid position
+		col = math.floor((ui.width - width) / 2)
+		row = math.floor((ui.height - height) / 2)
+	end
 
 	setup_highlights()
 

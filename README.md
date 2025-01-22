@@ -61,6 +61,8 @@ Dooing comes with sensible defaults that you can override:
         width = 55,         -- Width of the floating window
         height = 20,        -- Height of the floating window
         border = 'rounded', -- Border style
+        position = 'center', -- Window position: 'right', 'left', 'top', 'bottom', 'center',
+                           -- 'top-right', 'top-left', 'bottom-right', 'bottom-left'
         padding = {
             top = 1,
             bottom = 1,

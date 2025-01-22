@@ -58,12 +58,15 @@ Using lazy.nvim: >lua
 
 CONFIGURATION                                            *dooing-configuration*
 
-Default configuration: >lua
-    require("dooing").setup({
+The plugin can be configured by passing a table to the setup function:
+>
+    require('dooing').setup({
         window = {
-            width = 55,
-            height = 20,
-            border = "rounded",
+            width = 55,                -- Width of the todo window
+            height = 20,               -- Height of the todo window
+            border = "rounded",        -- Border style
+            position = "right",        -- Window position: "right", "left", "top", "bottom", "center",
+                                      -- "top-right", "top-left", "bottom-right", "bottom-left"
             padding = {
                 top = 1,
                 bottom = 1,
