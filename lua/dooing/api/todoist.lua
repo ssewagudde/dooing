@@ -98,4 +98,27 @@ function M.delete_task(id)
     curl({ "-X", "DELETE", url })
 end
 
+--- Update a task in Todoist (PATCH with arbitrary fields)
+--- @param id number|string
+--- @param data table JSON-serializable fields to update
+--- @return table|nil Updated task object
+function M.update_task(id, data)
+    local url = string.format("https://api.todoist.com/rest/v2/tasks/%s", id)
+    local payload = vim.fn.json_encode(data)
+    local res = curl({
+        "-H", "Content-Type: application/json",
+        "-X", "POST",
+        url,
+        "-d", payload,
+    })
+    if not res or res == "" then
+        return nil
+    end
+    local ok, task = pcall(vim.fn.json_decode, res)
+    if not ok or type(task) ~= "table" then
+        return nil
+    end
+    return task
+end
+
 return M

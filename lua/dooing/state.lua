@@ -35,6 +35,17 @@ function M.load_todos()
     local tasks = api.get_tasks() or {}
     M.todos = {}
     for _, t in ipairs(tasks) do
+      -- Map Todoist due date (YYYY-MM-DD) to timestamp at 23:59:59
+      local due_at = nil
+      if type(t.due) == "table" and t.due.date then
+        -- Parse due date string YYYY-MM-DD
+        local year, month, day = t.due.date:match("(%d+)%-(%d+)%-(%d+)")
+        year, month, day = tonumber(year), tonumber(month), tonumber(day)
+        if year and month and day then
+          local dt = { year = year, month = month, day = day, hour = 23, min = 59, sec = 59 }
+          due_at = os.time(dt)
+        end
+      end
       table.insert(M.todos, {
         id = t.id,
         text = t.content,
@@ -45,6 +56,8 @@ function M.load_todos()
         priorities = nil,
         estimated_hours = nil,
         notes = "",
+        due_at = due_at,
+        due_date = (type(t.due) == "table" and t.due.date) or nil,
       })
     end
     return
@@ -153,34 +166,58 @@ local function parse_date(date_str, format)
 	return timestamp
 end
 
-function M.add_due_date(index, date_str)
-	if not M.todos[index] then
-		return false, "Todo not found"
-	end
-
-	local timestamp, err = parse_date(date_str)
-	if timestamp then
-    local date_table = os.date("*t", timestamp)
-    date_table.hour = 23
-    date_table.min = 59
-    date_table.sec = 59
-    timestamp = os.time(date_table)
-
-		M.todos[index].due_at = timestamp
-		M.save_todos()
-		return true
-	else
-		return false, err
-	end
+ function M.add_due_date(index, date_str)
+  if not M.todos[index] then
+    return false, "Todo not found"
+  end
+  -- Parse local date
+  local timestamp, err = parse_date(date_str)
+  if not timestamp then
+    return false, err
+  end
+  local date_table = os.date("*t", timestamp)
+  date_table.hour = 23
+  date_table.min = 59
+  date_table.sec = 59
+  local due_ts = os.time(date_table)
+  if config.options.backend == "todoist" then
+    local api = require("dooing.api.todoist")
+    local task = M.todos[index]
+    -- Use ISO date string
+    local payload = { due_date = string.format("%04d-%02d-%02d", date_table.year, date_table.month, date_table.day) }
+    local ok = api.update_task(task.id, payload)
+    if not ok then
+      return false, "Failed to update task due date via API"
+    end
+    -- Reload remote data
+    M.load_todos()
+    return true
+  end
+  -- Local JSON backend
+  M.todos[index].due_at = due_ts
+  M.save_todos()
+  return true
 end
 
-function M.remove_due_date(index)
-	if M.todos[index] then
-		M.todos[index].due_at = nil
-		M.save_todos()
-		return true
-	end
-	return false
+ function M.remove_due_date(index)
+  if not M.todos[index] then
+    return false
+  end
+  if config.options.backend == "todoist" then
+    local api = require("dooing.api.todoist")
+    local task = M.todos[index]
+    -- Removing due date by setting due_date to null
+    local ok = api.update_task(task.id, { due_date = vim.NIL })
+    if not ok then
+      return false
+    end
+    M.load_todos()
+    return true
+  end
+  -- Local JSON backend
+  M.todos[index].due_at = nil
+  M.save_todos()
+  return true
 end
 
 -- Add estimated completion time to a todo
