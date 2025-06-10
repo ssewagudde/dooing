@@ -32,9 +32,10 @@ Dooing is a minimalist todo list manager for Neovim, designed with simplicity an
 
 ```lua
 return {
-    "atiladefreitas/dooing",
+    "ssewagudde/dooing",
     config = function()
         require("dooing").setup({
+        backend = "todoist",
             -- your custom config here (optional)
         })
     end,
@@ -258,10 +259,15 @@ Planned features and improvements for future versions of Dooing:
 - [x] Todo Filtering by Tags
 - [x] Todo Search
 - [ ] Todo List Per Project
+- [ ] Add task description deep dive
+- [ ] Add key map shoftcuts for popular tags
+- [ ] Unite labels and tags between to do list and the nvim
 
 #### UI Enhancements
 
 - [x] Tag Highlighting
+- [ ] add grouping by month based on due date
+- [ ] Add dashboards for each project
 - [ ] Custom Todo Colors
 - [ ] Todo Categories View
 

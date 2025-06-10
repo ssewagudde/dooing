@@ -32,6 +32,7 @@ FEATURES                                                      *dooing-features*
 - 💾 Persistent storage of your todos
 - 🎨 Adapts to your Neovim colorscheme
 - 📅 Due dates with calendar integration
+- 🗂️ Group tasks by due month for better organization
 - ⚡ Priority system with customizable weights
 - 🔍 Search and filter capabilities
 - 📤 Import/Export functionality

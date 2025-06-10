@@ -1295,10 +1295,27 @@ function M.render_todos()
 	local tmp_notes_icon = ""
 	local in_progress_icon = config.options.formatting.in_progress.icon
 
-	-- Loop through all todos and render them using the format
+	local groups = {}
+	local order = {}
 	for _, todo in ipairs(state.todos) do
 		if not state.active_filter or todo.text:match("#" .. state.active_filter) then
-			-- use the appropriate format based on the todo's status and lang
+			local label
+			if todo.due_at then
+				local dt = os.date("*t", todo.due_at)
+				label = calendar.MONTH_NAMES[lang][dt.month] .. " " .. dt.year
+			else
+				label = "No due date"
+			end
+			if not groups[label] then
+				groups[label] = {}
+				table.insert(order, label)
+			end
+			table.insert(groups[label], todo)
+		end
+	end
+	for _, label in ipairs(order) do
+		table.insert(lines, label)
+		for _, todo in ipairs(groups[label]) do
 			if todo.notes == nil or todo.notes == "" then
 				tmp_notes_icon = ""
 			else
@@ -1307,14 +1324,12 @@ function M.render_todos()
 			local todo_text = render_todo(todo, formatting, lang, tmp_notes_icon)
 			table.insert(lines, "  " .. todo_text)
 		end
+		table.insert(lines, "")
 	end
-
 	if state.active_filter then
 		table.insert(lines, 1, "")
 		table.insert(lines, 1, "  Filtered by: #" .. state.active_filter)
 	end
-
-	table.insert(lines, "")
 
 	for i, line in ipairs(lines) do
 		lines[i] = line:gsub("\n", " ")
