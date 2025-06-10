@@ -1404,9 +1404,13 @@ end
 
 -- Creates a new todo item
 function M.new_todo()
-	vim.ui.input({ prompt = "New to-do: " }, function(input)
-		input = input:gsub("\n", " ")
-		if input and input ~= "" then
+    vim.ui.input({ prompt = "New to-do: " }, function(input)
+        -- If user cancelled or provided no input, do nothing
+        if not input or input == "" then
+            return
+        end
+        input = input:gsub("\n", " ")
+        if input ~= "" then
 			-- Check if priorities are configured
 			if config.options.priorities and #config.options.priorities > 0 then
 				local priorities = config.options.priorities

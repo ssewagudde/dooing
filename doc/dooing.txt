@@ -39,9 +39,10 @@ FEATURES                                                      *dooing-features*
 
 REQUIREMENTS                                              *dooing-requirements*
 
-- Neovim >= 0.9.0
-- A patched font for icons (recommended)
-- Optional: nvim-web-devicons for file icons
+ - Neovim >= 0.9.0
+ - A patched font for icons (recommended)
+ - Optional: nvim-web-devicons for file icons
+ - `curl` command-line tool (for Todoist API backend)
 
 INSTALLATION                                              *dooing-installation*
 
@@ -96,6 +97,10 @@ The plugin can be configured by passing a table to the setup function:
             },
         },
         save_path = vim.fn.stdpath("data") .. "/dooing_todos.json",
+        -- Backend: "local" (default) or "todoist"
+        backend = "local",
+        -- If using Todoist backend, set your API token here (or export TODOIST_API_TOKEN)
+        todoist_api_token = "YOUR_TODOIST_API_TOKEN",
         calendar = {
             language = "en",
             icon = "",

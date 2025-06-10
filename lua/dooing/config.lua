@@ -107,15 +107,26 @@ M.defaults = {
 			close_calendar = "q",
 		},
 	},
-	scratchpad = {
-		syntax_highlight = "markdown",
-	},
+   -- Backend: "local" for local JSON storage, "todoist" for Todoist API
+   backend = "local",
+   -- Personal access token for Todoist (required if backend = "todoist")
+   todoist_api_token = "",
+   scratchpad = {
+       syntax_highlight = "markdown",
+   },
 }
 
 M.options = {}
 
 function M.setup(opts)
-	M.options = vim.tbl_deep_extend("force", M.defaults, opts or {})
+  M.options = vim.tbl_deep_extend("force", M.defaults, opts or {})
+  -- Allow reading Todoist token from environment if not provided in config
+  if M.options.backend == "todoist" then
+    local env_token = os.getenv("TODOIST_API_TOKEN")
+    if (not M.options.todoist_api_token or M.options.todoist_api_token == "") and env_token and env_token ~= "" then
+      M.options.todoist_api_token = env_token
+    end
+  end
 end
 
 return M

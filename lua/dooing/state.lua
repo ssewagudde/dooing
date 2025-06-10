@@ -29,50 +29,86 @@ end
 M.save_todos = save_todos
 
 function M.load_todos()
-	update_priority_weights()
-	local file = io.open(config.options.save_path, "r")
-	if file then
-		local content = file:read("*all")
-		file:close()
-		if content and content ~= "" then
-			M.todos = vim.fn.json_decode(content)
-		end
-	end
+  update_priority_weights()
+  if config.options.backend == "todoist" then
+    local api = require("dooing.api.todoist")
+    local tasks = api.get_tasks() or {}
+    M.todos = {}
+    for _, t in ipairs(tasks) do
+      table.insert(M.todos, {
+        id = t.id,
+        text = t.content,
+        done = t.completed or false,
+        in_progress = false,
+        category = "",
+        created_at = os.time(),
+        priorities = nil,
+        estimated_hours = nil,
+        notes = "",
+      })
+    end
+    return
+  end
+  -- local JSON-backed storage
+  local file = io.open(config.options.save_path, "r")
+  if file then
+    local content = file:read("*all")
+    file:close()
+    if content and content ~= "" then
+      M.todos = vim.fn.json_decode(content)
+    end
+  end
 end
 
 function M.add_todo(text, priority_names)
-	table.insert(M.todos, {
-		text = text,
-		done = false,
-		in_progress = false,
-		category = text:match("#(%w+)") or "",
-		created_at = os.time(),
-		priorities = priority_names,
-		estimated_hours = nil, -- Add estimated_hours field
-		notes = "",
-	})
-	save_todos()
+  if config.options.backend == "todoist" then
+    local api = require("dooing.api.todoist")
+    api.add_task(text)
+    M.load_todos()
+    return
+  end
+  table.insert(M.todos, {
+    text = text,
+    done = false,
+    in_progress = false,
+    category = text:match("#(%w+)") or "",
+    created_at = os.time(),
+    priorities = priority_names,
+    estimated_hours = nil,
+    notes = "",
+  })
+  save_todos()
 end
 
 function M.toggle_todo(index)
-	if M.todos[index] then
-		-- Cycle through states: pending -> in_progress -> done -> pending
-		if not M.todos[index].in_progress and not M.todos[index].done then
-			-- From pending to in_progress
-			M.todos[index].in_progress = true
-		elseif M.todos[index].in_progress then
-			-- From in_progress to done
-			M.todos[index].in_progress = false
-			M.todos[index].done = true
-			-- Track completion time
-			M.todos[index].completed_at = os.time()
-		else
-			-- From done back to pending
-			M.todos[index].done = false
-			M.todos[index].completed_at = nil
-		end
-		save_todos()
-	end
+  if config.options.backend == "todoist" then
+    local todo = M.todos[index]
+    if todo then
+      local api = require("dooing.api.todoist")
+      if not todo.done then
+        api.close_task(todo.id)
+        todo.done = true
+      else
+        api.reopen_task(todo.id)
+        todo.done = false
+      end
+    end
+    return
+  end
+  if M.todos[index] then
+    -- Cycle through states: pending -> in_progress -> done -> pending
+    if not M.todos[index].in_progress and not M.todos[index].done then
+      M.todos[index].in_progress = true
+    elseif M.todos[index].in_progress then
+      M.todos[index].in_progress = false
+      M.todos[index].done = true
+      M.todos[index].completed_at = os.time()
+    else
+      M.todos[index].done = false
+      M.todos[index].completed_at = nil
+    end
+    save_todos()
+  end
 end
 
 -- Parse date string in the format MM/DD/YYYY
@@ -193,21 +229,35 @@ function M.set_filter(tag)
 end
 
 function M.delete_todo(index)
-	if M.todos[index] then
-		table.remove(M.todos, index)
-		save_todos()
-	end
+  if config.options.backend == "todoist" then
+    local todo = M.todos[index]
+    if todo then
+      local api = require("dooing.api.todoist")
+      api.delete_task(todo.id)
+      table.remove(M.todos, index)
+    end
+    return
+  end
+  if M.todos[index] then
+    table.remove(M.todos, index)
+    save_todos()
+  end
 end
 
 function M.delete_completed()
-	local remaining_todos = {}
-	for _, todo in ipairs(M.todos) do
-		if not todo.done then
-			table.insert(remaining_todos, todo)
-		end
-	end
-	M.todos = remaining_todos
-	save_todos()
+  if config.options.backend == "todoist" then
+    -- Reload open tasks from Todoist (completed tasks are not returned)
+    M.load_todos()
+    return
+  end
+  local remaining_todos = {}
+  for _, todo in ipairs(M.todos) do
+    if not todo.done then
+      table.insert(remaining_todos, todo)
+    end
+  end
+  M.todos = remaining_todos
+  save_todos()
 end
 
 -- Helper function for hashing a todo object

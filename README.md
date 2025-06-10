@@ -22,8 +22,9 @@ Dooing is a minimalist todo list manager for Neovim, designed with simplicity an
 
 ### Prerequisites
 
-- Neovim `>= 0.10.0`
-- [Lazy.nvim](https://github.com/folke/lazy.nvim) as your plugin manager
+ - Neovim `>= 0.10.0`
+ - [Lazy.nvim](https://github.com/folke/lazy.nvim) as your plugin manager
+ - `curl` command-line tool (used for Todoist API integration)
 
 ### Using Lazy.nvim
 
@@ -96,6 +97,10 @@ Dooing comes with sensible defaults that you can override:
     scratchpad = {
         syntax_highlight = "markdown",
     },
+    -- Backend settings: "local" (default) or "todoist"
+    backend = "local",
+    -- If using Todoist backend, set your API token here (or export environment var TODOIST_API_TOKEN):
+    todoist_api_token = "YOUR_TODOIST_API_TOKEN",
 
     -- Keymaps
     keymaps = {
