@@ -15,8 +15,7 @@ Dooing is a minimalist todo list manager for Neovim, designed with simplicity an
 - 💾 **Persistent storage** of your todos
 - 🎨 Adapts to your Neovim **colorscheme**
 - 🛠️ Compatible with **Lazy.nvim** for effortless installation
-- ⏰ **Relative timestamps** showing when todos were created
-
+📅 **Group tasks by due month** when rendering the floating-window todo list (tasks without a due date fall under the “No due date” header)
 ---
 
 ## 📦 Installation
@@ -266,7 +265,7 @@ Planned features and improvements for future versions of Dooing:
 #### UI Enhancements
 
 - [x] Tag Highlighting
-- [ ] add grouping by month based on due date
+- [x] add grouping by month based on due date
 - [ ] Add dashboards for each project
 - [ ] Custom Todo Colors
 - [ ] Todo Categories View
