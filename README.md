@@ -10,6 +10,7 @@ Dooing is a minimalist todo list manager for Neovim, designed with simplicity an
 
 - 📝 Manage todos in a clean **floating window**
 - 🏷️ Categorize tasks with **#tags**
+- 🔄 Two-way sync with Todoist (add, complete, edit, delete all sync over the API)
 - ✅ Simple task management with clear visual feedback
 - 💾 **Persistent storage** of your todos
 - 🎨 Adapts to your Neovim **colorscheme**
@@ -24,7 +25,8 @@ Dooing is a minimalist todo list manager for Neovim, designed with simplicity an
 
  - Neovim `>= 0.10.0`
  - [Lazy.nvim](https://github.com/folke/lazy.nvim) as your plugin manager
- - `curl` command-line tool (used for Todoist API integration)
+- `curl` command-line tool (used for Todoist API integration)
+  - `TODOIST_API_TOKEN` environment variable (optional; falls back to `todoist_api_token` in config)
 
 ### Using Lazy.nvim
 

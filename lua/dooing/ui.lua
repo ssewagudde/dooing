@@ -180,13 +180,28 @@ edit_todo = function()
 			end
 		end
 
-		vim.ui.input({ zindex = 300, prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
-			if input and input ~= "" then
-				state.todos[todo_index].text = input
-				state.save_todos()
-				M.render_todos()
-			end
-		end)
+        vim.ui.input({ zindex = 300, prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
+            -- No input or cancel: do nothing
+            if not input or input == "" then
+                return
+            end
+            if config.options.backend == "todoist" then
+                local api = require("dooing.api.todoist")
+                local task = state.todos[todo_index]
+                local updated = api.update_task(task.id, { content = input })
+                if updated then
+                    state.load_todos()
+                    M.render_todos()
+                    vim.notify("Todo updated successfully", vim.log.levels.INFO, { title = "Dooing" })
+                else
+                    vim.notify("Failed to update remote task", vim.log.levels.ERROR, { title = "Dooing" })
+                end
+            else
+                state.todos[todo_index].text = input
+                state.save_todos()
+                M.render_todos()
+            end
+        end)
 	end
 end
 
