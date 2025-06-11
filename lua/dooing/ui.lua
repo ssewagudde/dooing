@@ -161,51 +161,48 @@ end
 
 -- Handles editing of existing todos
 edit_todo = function()
-	local cursor = vim.api.nvim_win_get_cursor(win_id)
-	local todo_index = cursor[1] - 1
-	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
-
-	local done_icon = config.options.formatting.done.icon
-	local pending_icon = config.options.formatting.pending.icon
-	local in_progress_icon = config.options.formatting.in_progress.icon
-
-	if line_content:match("%s+[" .. done_icon .. pending_icon .. in_progress_icon .. "]") then
-		if state.active_filter then
-			local visible_index = 0
-			for i, todo in ipairs(state.todos) do
-				if todo.text:match("#" .. state.active_filter) then
-					visible_index = visible_index + 1
-					if visible_index == todo_index - 2 then
-						todo_index = i
-						break
-					end
-				end
+	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
+	local todo_index = line_to_todo[current_line]
+	if not todo_index then
+		vim.notify("No todo selected to edit", vim.log.levels.WARN)
+		return
+	end
+	local line_content = vim.api.nvim_buf_get_lines(buf_id, current_line - 1, current_line, false)[1]
+	local icons = config.options.formatting
+	local done_icon = icons.done.icon
+	local pending_icon = icons.pending.icon
+	local in_progress_icon = icons.in_progress.icon
+	if not line_content:match("%s+[" .. done_icon .. pending_icon .. in_progress_icon .. "]") then
+		return
+	end
+	vim.ui.input({ zindex = 300, prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
+		if not input or input == "" then
+			return
+		end
+		if config.options.backend == "todoist" then
+			local api = require("dooing.api.todoist")
+			local task = state.todos[todo_index]
+			if api.update_task(task.id, { content = input }) then
+				state.load_todos()
+				M.render_todos()
+			else
+				vim.notify("Failed to update remote task", vim.log.levels.ERROR, { title = "Dooing" })
+				return
+			end
+		else
+			state.todos[todo_index].text = input
+			state.save_todos()
+			M.render_todos()
+		end
+		-- Keep cursor on the edited todo after re-render
+		for display_line, idx in pairs(line_to_todo) do
+			if idx == todo_index then
+				vim.api.nvim_win_set_cursor(win_id, { display_line, 0 })
+				break
 			end
 		end
-
-        vim.ui.input({ zindex = 300, prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
-            -- No input or cancel: do nothing
-            if not input or input == "" then
-                return
-            end
-            if config.options.backend == "todoist" then
-                local api = require("dooing.api.todoist")
-                local task = state.todos[todo_index]
-                local updated = api.update_task(task.id, { content = input })
-                if updated then
-                    state.load_todos()
-                    M.render_todos()
-                    vim.notify("Todo updated successfully", vim.log.levels.INFO, { title = "Dooing" })
-                else
-                    vim.notify("Failed to update remote task", vim.log.levels.ERROR, { title = "Dooing" })
-                end
-            else
-                state.todos[todo_index].text = input
-                state.save_todos()
-                M.render_todos()
-            end
-        end)
-	end
+		vim.notify("Todo updated successfully", vim.log.levels.INFO, { title = "Dooing" })
+	end)
 end
 
 -- Handles editing priorities
@@ -840,8 +837,9 @@ local function add_due_date()
 			local success, err = state.add_due_date(todo_index, date_str)
 
 			if success then
-				vim.notify("Due date added successfully", vim.log.levels.INFO)
 				M.render_todos()
+
+				vim.notify("Due date added successfully", vim.log.levels.INFO)
 			else
 				vim.notify("Error adding due date: " .. (err or "Unknown error"), vim.log.levels.ERROR)
 			end
@@ -861,8 +859,9 @@ local function remove_due_date()
 	local success = state.remove_due_date(todo_index)
 
 	if success then
-		vim.notify("Due date removed successfully", vim.log.levels.INFO)
 		M.render_todos()
+
+		vim.notify("Due date removed successfully", vim.log.levels.INFO)
 	else
 		vim.notify("Error removing due date", vim.log.levels.ERROR)
 	end
@@ -1632,6 +1631,7 @@ function M.toggle_todo()
 	end
 	state.toggle_todo(todo_index)
 	M.render_todos()
+
 end
 
 -- Deletes the current todo item
