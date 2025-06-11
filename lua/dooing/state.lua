@@ -128,7 +128,6 @@ end
 local function parse_date(date_str, format)
 	local month, day, year = date_str:match("^(%d%d?)/(%d%d?)/(%d%d%d%d)$")
 
-	print(month, day, year)
 	if not (month and day and year) then
 		return nil, "Invalid date format"
 	end

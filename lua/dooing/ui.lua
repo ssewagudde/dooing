@@ -49,6 +49,9 @@ local search_win_id = nil
 ---@type integer|nil
 local search_buf_id = nil
 
+-- Mapping from displayed line number to todo index; updated in render_todos()
+local line_to_todo = {}
+
 -- Forward declare local functions that are used in keymaps
 local create_help_window
 local create_tag_window
@@ -672,7 +675,7 @@ local function handle_search_query(query)
 	-- Jump to todo in main window
 	vim.keymap.set("n", "<CR>", function()
 		local current_line = vim.api.nvim_win_get_cursor(search_win_id)[1]
-		local matched_result = nil
+		local matched_result
 		for _, item in ipairs(valid_lines) do
 			if item.line_index == current_line then
 				matched_result = item.result
@@ -684,7 +687,17 @@ local function handle_search_query(query)
 			search_win_id = nil
 			search_buf_id = nil
 			vim.api.nvim_set_current_win(win_id)
-			vim.api.nvim_win_set_cursor(win_id, { matched_result.lnum + 1, 3 })
+			-- Jump to the correct display line using the line_to_todo map
+			local target_line
+			for display_line, t_idx in pairs(line_to_todo) do
+				if t_idx == matched_result.lnum then
+					target_line = display_line
+					break
+				end
+			end
+			if target_line then
+				vim.api.nvim_win_set_cursor(win_id, { target_line, 3 })
+			end
 		end
 	end, { buffer = search_buf_id, nowait = true })
 end
@@ -816,7 +829,11 @@ end
 -- In ui.lua, update the add_due_date function
 local function add_due_date()
 	local current_line = vim.api.nvim_win_get_cursor(0)[1]
-	local todo_index = current_line - (state.active_filter and 3 or 1)
+	local todo_index = line_to_todo[current_line]
+	if not todo_index then
+		vim.notify("No todo selected for due date", vim.log.levels.WARN)
+		return
+	end
 
 	calendar.create(function(date_str)
 		if date_str and date_str ~= "" then
@@ -835,7 +852,11 @@ end
 -- Remove due date from to-do
 local function remove_due_date()
 	local current_line = vim.api.nvim_win_get_cursor(0)[1]
-	local todo_index = current_line - (state.active_filter and 3 or 1)
+	local todo_index = line_to_todo[current_line]
+	if not todo_index then
+		vim.notify("No todo selected for removing due date", vim.log.levels.WARN)
+		return
+	end
 
 	local success = state.remove_due_date(todo_index)
 
@@ -1295,41 +1316,49 @@ function M.render_todos()
 	local tmp_notes_icon = ""
 	local in_progress_icon = config.options.formatting.in_progress.icon
 
-	local groups = {}
-	local order = {}
-	for _, todo in ipairs(state.todos) do
-		if not state.active_filter or todo.text:match("#" .. state.active_filter) then
-			local label
-			if todo.due_at then
-				local dt = os.date("*t", todo.due_at)
-				label = calendar.MONTH_NAMES[lang][dt.month] .. " " .. dt.year
-			else
-				label = "No due date"
+		local groups = {}
+		local order = {}
+		-- Collect to-do indices grouped by due month
+		for idx, todo in ipairs(state.todos) do
+			if not state.active_filter or todo.text:match("#" .. state.active_filter) then
+				local label
+				if todo.due_at then
+					local dt = os.date("*t", todo.due_at)
+					label = calendar.MONTH_NAMES[lang][dt.month] .. " " .. dt.year
+				else
+					label = "No due date"
+				end
+				if not groups[label] then
+					groups[label] = {}
+					table.insert(order, label)
+				end
+				table.insert(groups[label], idx)
 			end
-			if not groups[label] then
-				groups[label] = {}
-				table.insert(order, label)
-			end
-			table.insert(groups[label], todo)
 		end
-	end
-	for _, label in ipairs(order) do
-		table.insert(lines, label)
-		for _, todo in ipairs(groups[label]) do
-			if todo.notes == nil or todo.notes == "" then
-				tmp_notes_icon = ""
-			else
-				tmp_notes_icon = notes_icon
+		line_to_todo = {}
+		for _, label in ipairs(order) do
+			table.insert(lines, label)
+			for _, todo_idx in ipairs(groups[label]) do
+				local todo = state.todos[todo_idx]
+				if todo.notes == nil or todo.notes == "" then
+					tmp_notes_icon = ""
+				else
+					tmp_notes_icon = notes_icon
+				end
+				local todo_text = render_todo(todo, formatting, lang, tmp_notes_icon)
+				table.insert(lines, "  " .. todo_text)
+				line_to_todo[#lines] = todo_idx
 			end
-			local todo_text = render_todo(todo, formatting, lang, tmp_notes_icon)
-			table.insert(lines, "  " .. todo_text)
+			table.insert(lines, "")
 		end
-		table.insert(lines, "")
-	end
-	if state.active_filter then
-		table.insert(lines, 1, "")
-		table.insert(lines, 1, "  Filtered by: #" .. state.active_filter)
-	end
+		if state.active_filter then
+			table.insert(lines, 1, "")
+			table.insert(lines, 1, "  Filtered by: #" .. state.active_filter)
+			for i = #line_to_todo, 1, -1 do
+				line_to_todo[i + 2] = line_to_todo[i]
+				line_to_todo[i] = nil
+			end
+		end
 
 	for i, line in ipairs(lines) do
 		lines[i] = line:gsub("\n", " ")
@@ -1349,33 +1378,27 @@ function M.render_todos()
 		end
 	end
 
-	for i, line in ipairs(lines) do
-		local line_nr = i - 1
-		if line:match("%s+[" .. done_icon .. pending_icon .. in_progress_icon .. "]") then
-			local todo_index = i - (state.active_filter and 3 or 1)
-			local todo = state.todos[todo_index]
-
-			if todo then
+		for i, line in ipairs(lines) do
+			local line_nr = i - 1
+			local todo_idx = line_to_todo[i]
+			if todo_idx then
+				local todo = state.todos[todo_idx]
 				-- Base todo highlight
 				if todo.done then
 					add_hl(line_nr, 0, -1, "DooingDone")
 				else
-					-- Get highlight based on priorities
 					local hl_group = get_priority_highlight(todo.priorities)
 					add_hl(line_nr, 0, -1, hl_group)
 				end
-
 				-- Tags highlight
 				for tag in line:gmatch("#(%w+)") do
 					local tag_pattern = "#" .. tag
 					local start_idx = line:find(tag_pattern) - 1
 					add_hl(line_nr, start_idx, start_idx + #tag_pattern, "Type")
 				end
-
 				-- Due date and overdue highlights
 				highlight_pattern(line, line_nr, "%[@%d+/%d+/%d+%]", "Comment")
 				highlight_pattern(line, line_nr, "%[OVERDUE%]", "ErrorMsg")
-
 				-- Timestamp highlight
 				if config.options.timestamp and config.options.timestamp.enabled then
 					local timestamp_pattern = "@[%w%s]+ago"
@@ -1384,11 +1407,10 @@ function M.render_todos()
 						add_hl(line_nr, start_idx - 1, start_idx + #line:match(timestamp_pattern), "DooingTimestamp")
 					end
 				end
+			elseif line:match("Filtered by:") then
+				add_hl(line_nr, 0, -1, "WarningMsg")
 			end
-		elseif line:match("Filtered by:") then
-			add_hl(line_nr, 0, -1, "WarningMsg")
 		end
-	end
 
 	vim.api.nvim_buf_set_option(buf_id, "modifiable", false)
 end
@@ -1602,29 +1624,14 @@ end
 -- Toggles the completion status of the current todo
 function M.toggle_todo()
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
-	local todo_index = cursor[1] - 1
-	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
-	local done_icon = config.options.formatting.done.icon
-	local pending_icon = config.options.formatting.pending.icon
-	local in_progress_icon = config.options.formatting.in_progress.icon
-
-	if line_content:match("%s+[" .. done_icon .. pending_icon .. in_progress_icon .. "]") then
-		if state.active_filter then
-			local visible_index = 0
-			for i, todo in ipairs(state.todos) do
-				if todo.text:match("#" .. state.active_filter) then
-					visible_index = visible_index + 1
-					if visible_index == todo_index - 2 then -- -2 for filter header
-						state.toggle_todo(i)
-						break
-					end
-				end
-			end
-		else
-			state.toggle_todo(todo_index)
-		end
-		M.render_todos()
+	local current_line = cursor[1]
+	local todo_index = line_to_todo[current_line]
+	if not todo_index then
+		vim.notify("No todo selected to toggle", vim.log.levels.WARN)
+		return
 	end
+	state.toggle_todo(todo_index)
+	M.render_todos()
 end
 
 -- Deletes the current todo item
