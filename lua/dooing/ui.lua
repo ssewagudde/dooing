@@ -24,6 +24,49 @@ local calendar = require("dooing.calendar")
 local server = require("dooing.server")
 
 --------------------------------------------------
+-- Utility Helpers
+--------------------------------------------------
+
+-- Notification helper for consistent messaging
+local notify = {
+	success = function(msg) 
+		vim.notify(msg, vim.log.levels.INFO, { title = "Dooing" }) 
+	end,
+	error = function(msg) 
+		vim.notify(msg, vim.log.levels.ERROR, { title = "Dooing" }) 
+	end,
+	warn = function(msg) 
+		vim.notify(msg, vim.log.levels.WARN, { title = "Dooing" }) 
+	end,
+	info = function(msg) 
+		vim.notify(msg, vim.log.levels.INFO, { title = "Dooing" }) 
+	end,
+}
+
+-- Auto-render wrapper for functions that modify todos
+local function auto_render(fn)
+	return function(...)
+		local result = fn(...)
+		if win_id and vim.api.nvim_win_is_valid(win_id) then
+			M.render_todos()
+		end
+		return result
+	end
+end
+
+-- Icon helper for status-based icons
+local function get_status_icon(status)
+	local formatting = config.options.formatting
+	if status == "done" then
+		return formatting.done.icon
+	elseif status == "in_progress" then
+		return formatting.in_progress.icon
+	else
+		return formatting.pending.icon
+	end
+end
+
+--------------------------------------------------
 -- Local Variables and Cache
 --------------------------------------------------
 -- Namespace for highlighting
@@ -160,21 +203,21 @@ end
 --------------------------------------------------
 
 -- Handles editing of existing todos
-edit_todo = function()
+edit_todo = auto_render(function()
 	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
 	local todo_index = line_to_todo[current_line]
 	if not todo_index then
-		vim.notify("No todo selected to edit", vim.log.levels.WARN)
+		notify.warn("No todo selected to edit")
 		return
 	end
 	local line_content = vim.api.nvim_buf_get_lines(buf_id, current_line - 1, current_line, false)[1]
-	local icons = config.options.formatting
-	local done_icon = icons.done.icon
-	local pending_icon = icons.pending.icon
-	local in_progress_icon = icons.in_progress.icon
-	if not line_content:match("%s+[" .. done_icon .. pending_icon .. in_progress_icon .. "]") then
+	
+	-- Use icon helper
+	local all_icons = get_status_icon("done") .. get_status_icon("pending") .. get_status_icon("in_progress")
+	if not line_content:match("%s+[" .. all_icons .. "]") then
 		return
 	end
+	
 	vim.ui.input({ zindex = 300, prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
 		if not input or input == "" then
 			return
@@ -184,15 +227,15 @@ edit_todo = function()
 			local task = state.todos[todo_index]
 			if api.update_task(task.id, { content = input }) then
 				state.load_todos()
-				M.render_todos()
+				-- Auto-render will handle this
 			else
-				vim.notify("Failed to update remote task", vim.log.levels.ERROR, { title = "Dooing" })
+				notify.error("Failed to update remote task")
 				return
 			end
 		else
 			state.todos[todo_index].text = input
 			state.save_todos()
-			M.render_todos()
+			-- Auto-render will handle this
 		end
 		-- Keep cursor on the edited todo after re-render
 		for display_line, idx in pairs(line_to_todo) do
@@ -201,9 +244,9 @@ edit_todo = function()
 				break
 			end
 		end
-		vim.notify("Todo updated successfully", vim.log.levels.INFO, { title = "Dooing" })
+		notify.success("Todo updated successfully")
 	end)
-end
+end)
 
 -- Handles editing priorities
 edit_priorities = function()
@@ -1151,20 +1194,18 @@ local function create_window()
 	setup_keymap("delete_completed", M.delete_completed)
 	setup_keymap("close_window", M.close_window)
   setup_keymap("refresh_todos", M.reload_todos)
-	setup_keymap("undo_delete", function()
+	setup_keymap("undo_delete", auto_render(function()
 		if state.undo_delete() then
-			M.render_todos()
-			vim.notify("Todo restored", vim.log.levels.INFO)
+			notify.success("Todo restored")
 		end
-	end)
+	end))
 
 	-- Window and view management
 	setup_keymap("toggle_help", create_help_window)
 	setup_keymap("toggle_tags", create_tag_window)
-	setup_keymap("clear_filter", function()
+	setup_keymap("clear_filter", auto_render(function()
 		state.set_filter(nil)
-		M.render_todos()
-	end)
+	end))
 
 	-- Todo editing and management
 	setup_keymap("edit_todo", edit_todo)
@@ -1468,12 +1509,12 @@ function M.reload_todos()
     state.load_todos()
     if M.is_window_open() then
         M.render_todos()
-        vim.notify("Todo list refreshed", vim.log.levels.INFO, { title = "Dooing" })
+        notify.success("Todo list refreshed")
     end
 end
 
 -- Creates a new todo item
-function M.new_todo()
+M.new_todo = auto_render(function()
     vim.ui.input({ prompt = "New to-do: " }, function(input)
         -- If user cancelled or provided no input, do nothing
         if not input or input == "" then
@@ -1570,7 +1611,7 @@ function M.new_todo()
 					-- Add todo with priority names
 					local priorities_to_add = #selected_priority_names > 0 and selected_priority_names or nil
 					state.add_todo(input, priorities_to_add)
-					M.render_todos()
+					-- Auto-render will handle this
 
 					-- Make sure we're focusing on the main window
 					if win_id and vim.api.nvim_win_is_valid(win_id) then
@@ -1613,7 +1654,7 @@ function M.new_todo()
 			else
 				-- If prioritization is disabled, just add the todo without priority
 				state.add_todo(input)
-				M.render_todos()
+				-- Auto-render will handle this
 				
 				-- Make sure we're focusing on the main window
 				if win_id and vim.api.nvim_win_is_valid(win_id) then
@@ -1637,7 +1678,7 @@ function M.new_todo()
 			end
 		end
 	end)
-end
+end)
 
 -- Centralized UI action helper
 local function execute_todo_action(action_name, action_fn, success_msg, validation_fn)
@@ -1646,7 +1687,7 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 	local todo_index = line_to_todo[current_line]
 	
 	if not todo_index then
-		vim.notify("No todo selected", vim.log.levels.WARN)
+		notify.warn("No todo selected")
 		return
 	end
 	
@@ -1654,18 +1695,15 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 	if validation_fn then
 		local valid, msg = validation_fn(state.todos[todo_index])
 		if not valid then
-			vim.notify(msg, vim.log.levels.WARN)
+			notify.warn(msg)
 			return
 		end
 	end
 	
-	-- Execute action
+	-- Execute action (auto-render will handle re-rendering)
 	local success = action_fn(todo_index)
-	if success then
-		M.render_todos()
-		if success_msg then
-			vim.notify(success_msg, vim.log.levels.INFO)
-		end
+	if success and success_msg then
+		notify.success(success_msg)
 	end
 end
 
@@ -1695,15 +1733,15 @@ function M.complete_todo()
 end
 
 -- Deletes the current todo item
-function M.delete_todo()
+M.delete_todo = auto_render(function()
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
 	local todo_index = cursor[1] - 1
 	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
-	local done_icon = config.options.formatting.done.icon
-	local pending_icon = config.options.formatting.pending.icon
-	local in_progress_icon = config.options.formatting.in_progress.icon
+	
+	-- Use icon helper instead of manual icon retrieval
+	local all_icons = get_status_icon("done") .. get_status_icon("pending") .. get_status_icon("in_progress")
 
-	if line_content:match("%s+[" .. done_icon .. pending_icon .. in_progress_icon .. "]") then
+	if line_content:match("%s+[" .. all_icons .. "]") then
 		if state.active_filter then
 			local visible_index = 0
 			for i, todo in ipairs(state.todos) do
@@ -1717,24 +1755,21 @@ function M.delete_todo()
 			end
 		else
 			state.delete_todo_with_confirmation(todo_index, win_id, calendar, function()
-				M.render_todos()
+				-- Auto-render will handle this
 			end)
 		end
-		M.render_todos()
 	end
-end
+end)
 
 -- Deletes all completed todos
-function M.delete_completed()
+M.delete_completed = auto_render(function()
 	state.delete_completed()
-	M.render_todos()
-end
+end)
 
 -- Delete all duplicated todos
-function M.remove_duplicates()
+M.remove_duplicates = auto_render(function()
 	local dups = state.remove_duplicates()
-	vim.notify("Removed " .. dups .. " duplicates.", vim.log.levels.INFO)
-	M.render_todos()
-end
+	notify.success("Removed " .. dups .. " duplicates.")
+end)
 
 return M
