@@ -109,6 +109,7 @@ Dooing comes with sensible defaults that you can override:
         toggle_window = "<leader>td",
         new_todo = "i",
         toggle_todo = "x",
+        cancel_in_progress = "<BS>",
         delete_todo = "d",
         delete_completed = "D",
         close_window = "q",
@@ -205,6 +206,7 @@ Dooing comes with intuitive keybindings:
 | `<leader>td` | Toggle todo window           |
 | `i`          | Add new todo                 |
 | `x`          | Toggle todo status           |
+| `<BS>`       | Cancel in-progress/done → pending |
 | `d`          | Delete current todo          |
 | `D`          | Delete all completed todos   |
 | `q`          | Close window                 |

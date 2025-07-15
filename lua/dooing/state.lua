@@ -156,6 +156,36 @@ function M.toggle_todo(index)
   end
 end
 
+function M.cancel_in_progress(index)
+  if config.options.backend == "todoist" then
+    local todo = M.todos[index]
+    if todo and todo.status == "in_progress" then
+      local api = require("dooing.api.todoist")
+      api.set_task_status(todo.id, "pending")
+      todo.status = "pending"
+    elseif todo and todo.status == "done" then
+      -- Also allow canceling completed tasks back to pending
+      local api = require("dooing.api.todoist")
+      api.reopen_task(todo.id)
+      api.set_task_status(todo.id, "pending")
+      todo.status = "pending"
+    end
+    return
+  end
+  
+  if M.todos[index] then
+    -- Cancel in_progress or done tasks back to pending
+    if M.todos[index].status == "in_progress" then
+      M.todos[index].status = "pending"
+      save_todos()
+    elseif M.todos[index].status == "done" then
+      M.todos[index].status = "pending"
+      M.todos[index].completed_at = nil
+      save_todos()
+    end
+  end
+end
+
 -- Parse date string in the format MM/DD/YYYY
 local function parse_date(date_str, format)
 	local month, day, year = date_str:match("^(%d%d?)/(%d%d?)/(%d%d%d%d)$")
