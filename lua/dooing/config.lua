@@ -69,6 +69,7 @@ M.defaults = {
 		toggle_window = "<leader>td",
 		new_todo = "i",
 		toggle_todo = "x",
+		complete_todo = "X",
 		cancel_in_progress = "<BS>",
 		delete_todo = "d",
 		delete_completed = "D",

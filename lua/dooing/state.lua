@@ -186,6 +186,27 @@ function M.cancel_in_progress(index)
   end
 end
 
+function M.complete_todo(index)
+  if config.options.backend == "todoist" then
+    local todo = M.todos[index]
+    if todo and todo.status ~= "done" then
+      local api = require("dooing.api.todoist")
+      api.close_task(todo.id)
+      todo.status = "done"
+    end
+    return
+  end
+  
+  if M.todos[index] then
+    -- Complete todo directly from any state
+    if M.todos[index].status ~= "done" then
+      M.todos[index].status = "done"
+      M.todos[index].completed_at = os.time()
+      save_todos()
+    end
+  end
+end
+
 -- Parse date string in the format MM/DD/YYYY
 local function parse_date(date_str, format)
 	local month, day, year = date_str:match("^(%d%d?)/(%d%d?)/(%d%d%d%d)$")

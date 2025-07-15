@@ -1145,6 +1145,7 @@ local function create_window()
 	-- Main actions
 	setup_keymap("new_todo", M.new_todo)
 	setup_keymap("toggle_todo", M.toggle_todo)
+	setup_keymap("complete_todo", M.complete_todo)
 	setup_keymap("cancel_in_progress", M.cancel_in_progress)
 	setup_keymap("delete_todo", M.delete_todo)
 	setup_keymap("delete_completed", M.delete_completed)
@@ -1673,6 +1674,26 @@ function M.cancel_in_progress()
 		vim.notify("Todo cancelled back to pending", vim.log.levels.INFO)
 	else
 		vim.notify("Only in-progress or completed todos can be cancelled", vim.log.levels.WARN)
+	end
+end
+
+-- Complete todo directly (Shift+X)
+function M.complete_todo()
+	local cursor = vim.api.nvim_win_get_cursor(win_id)
+	local current_line = cursor[1]
+	local todo_index = line_to_todo[current_line]
+	if not todo_index then
+		vim.notify("No todo selected to complete", vim.log.levels.WARN)
+		return
+	end
+	
+	local todo = state.todos[todo_index]
+	if todo.status == "done" then
+		vim.notify("Todo is already completed", vim.log.levels.INFO)
+	else
+		state.complete_todo(todo_index)
+		M.render_todos()
+		vim.notify("Todo marked as completed", vim.log.levels.INFO)
 	end
 end
 
