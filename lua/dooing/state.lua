@@ -28,6 +28,29 @@ end
 -- Expose it as part of the module
 M.save_todos = save_todos
 
+-- Helper function to migrate old todo format to new status-based format
+local function migrate_todo(todo)
+  -- If todo already has status field, return as-is
+  if todo.status then
+    return todo
+  end
+  
+  -- Migrate from old done/in_progress boolean fields to status enum
+  if todo.done then
+    todo.status = "done"
+  elseif todo.in_progress then
+    todo.status = "in_progress"
+  else
+    todo.status = "pending"
+  end
+  
+  -- Remove old fields
+  todo.done = nil
+  todo.in_progress = nil
+  
+  return todo
+end
+
 function M.load_todos()
   update_priority_weights()
   if config.options.backend == "todoist" then
@@ -49,8 +72,7 @@ function M.load_todos()
       table.insert(M.todos, {
         id = t.id,
         text = t.content,
-        done = t.completed or false,
-        in_progress = false,
+        status = t.completed and "done" or (t.dooing_status or "pending"),
         category = "",
         created_at = os.time(),
         priorities = nil,
@@ -68,7 +90,14 @@ function M.load_todos()
     local content = file:read("*all")
     file:close()
     if content and content ~= "" then
-      M.todos = vim.fn.json_decode(content)
+      local loaded_todos = vim.fn.json_decode(content)
+      -- Migrate todos to new format
+      M.todos = {}
+      for _, todo in ipairs(loaded_todos) do
+        table.insert(M.todos, migrate_todo(todo))
+      end
+      -- Save migrated todos back to file
+      save_todos()
     end
   end
 end
@@ -82,8 +111,7 @@ function M.add_todo(text, priority_names)
   end
   table.insert(M.todos, {
     text = text,
-    done = false,
-    in_progress = false,
+    status = "pending",
     category = text:match("#(%w+)") or "",
     created_at = os.time(),
     priorities = priority_names,
@@ -98,26 +126,30 @@ function M.toggle_todo(index)
     local todo = M.todos[index]
     if todo then
       local api = require("dooing.api.todoist")
-      if not todo.done then
+      -- Cycle through states: pending -> in_progress -> done -> pending
+      if todo.status == "pending" then
+        api.set_task_status(todo.id, "in_progress")
+        todo.status = "in_progress"
+      elseif todo.status == "in_progress" then
         api.close_task(todo.id)
-        todo.done = true
-      else
+        todo.status = "done"
+      else -- status == "done"
         api.reopen_task(todo.id)
-        todo.done = false
+        api.set_task_status(todo.id, "pending")
+        todo.status = "pending"
       end
     end
     return
   end
   if M.todos[index] then
     -- Cycle through states: pending -> in_progress -> done -> pending
-    if not M.todos[index].in_progress and not M.todos[index].done then
-      M.todos[index].in_progress = true
-    elseif M.todos[index].in_progress then
-      M.todos[index].in_progress = false
-      M.todos[index].done = true
+    if M.todos[index].status == "pending" then
+      M.todos[index].status = "in_progress"
+    elseif M.todos[index].status == "in_progress" then
+      M.todos[index].status = "done"
       M.todos[index].completed_at = os.time()
-    else
-      M.todos[index].done = false
+    else -- status == "done"
+      M.todos[index].status = "pending"
       M.todos[index].completed_at = nil
     end
     save_todos()
@@ -288,7 +320,7 @@ function M.delete_completed()
   end
   local remaining_todos = {}
   for _, todo in ipairs(M.todos) do
-    if not todo.done then
+    if todo.status ~= "done" then
       table.insert(remaining_todos, todo)
     end
   end
@@ -327,7 +359,7 @@ end
 
 -- Calculate priority score for a todo item
 function M.get_priority_score(todo)
-	if todo.done then
+	if todo.status == "done" then
 		return 0
 	end
 
@@ -354,13 +386,18 @@ end
 
 function M.sort_todos()
 	table.sort(M.todos, function(a, b)
-		-- First sort by completion status
-		if a.done ~= b.done then
-			return not a.done -- Undone items come first
+		-- Define status priority order: in_progress > pending > done
+		local status_priority = { in_progress = 3, pending = 2, done = 1 }
+		local a_status_priority = status_priority[a.status] or 2
+		local b_status_priority = status_priority[b.status] or 2
+		
+		-- First sort by status priority
+		if a_status_priority ~= b_status_priority then
+			return a_status_priority > b_status_priority
 		end
 
 		-- For completed items, sort by completion time (most recent first)
-		if config.options.done_sort_by_completed_time and a.done and b.done then
+		if config.options.done_sort_by_completed_time and a.status == "done" and b.status == "done" then
 			-- Use completed_at if available, otherwise fall back to created_at
 			local a_time = a.completed_at or a.created_at or 0
 			local b_time = b.completed_at or b.created_at or 0
@@ -465,12 +502,12 @@ end
 -- Helper function to get the priority-based highlights
 local function get_priority_highlights(todo)
 	-- First check if the todo is done
-	if todo.done then
+	if todo.status == "done" then
 		return "DooingDone"
 	end
 
 	-- Then check if it's in progress
-	if todo.in_progress then
+	if todo.status == "in_progress" then
 		return "DooingInProgress"
 	end
 
@@ -528,7 +565,7 @@ function M.delete_todo_with_confirmation(todo_index, win_id, calendar, callback)
 	end
 
 	-- If todo is completed, delete without confirmation
-	if current_todo.done then
+	if current_todo.status == "done" then
 		M.delete_todo(todo_index)
 		if callback then
 			callback()
@@ -774,7 +811,7 @@ function M.delete_completed()
 	local removed_count = 0
 
 	for i, todo in ipairs(M.todos) do
-		if todo.done then
+		if todo.status == "done" then
 			M.store_deleted_todo(todo, i - removed_count)
 			removed_count = removed_count + 1
 		else

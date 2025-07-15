@@ -31,6 +31,42 @@ local function curl(cmd_args)
     return result
 end
 
+--- Get or create the "in_progress" label in Todoist
+--- @return string|nil Label ID for in_progress
+local function get_in_progress_label()
+    -- First, try to get existing labels
+    local url = "https://api.todoist.com/rest/v2/labels"
+    local res = curl({ url })
+    if res and res ~= "" then
+        local ok, labels = pcall(vim.fn.json_decode, res)
+        if ok and type(labels) == "table" then
+            for _, label in ipairs(labels) do
+                if label.name == "in_progress" then
+                    return label.id
+                end
+            end
+        end
+    end
+    
+    -- Create the label if it doesn't exist
+    local create_url = "https://api.todoist.com/rest/v2/labels"
+    local payload = vim.fn.json_encode({ name = "in_progress" })
+    local create_res = curl({
+        "-H", "Content-Type: application/json",
+        "-X", "POST",
+        create_url,
+        "-d", payload,
+    })
+    if create_res and create_res ~= "" then
+        local ok, label = pcall(vim.fn.json_decode, create_res)
+        if ok and label.id then
+            return label.id
+        end
+    end
+    
+    return nil
+end
+
 --- Fetch all tasks from Todoist
 --- @return table|nil Array of task objects
 function M.get_tasks()
@@ -50,7 +86,73 @@ function M.get_tasks()
         )
         return {}
     end
+    
+    -- Get the in_progress label ID for status detection
+    local in_progress_label_id = get_in_progress_label()
+    
+    -- Add status field based on labels
+    for _, task in ipairs(data) do
+        task.dooing_status = "pending" -- default
+        if task.labels and in_progress_label_id then
+            for _, label_id in ipairs(task.labels) do
+                if tostring(label_id) == tostring(in_progress_label_id) then
+                    task.dooing_status = "in_progress"
+                    break
+                end
+            end
+        end
+    end
+    
     return data
+end
+
+--- Set task status by managing the in_progress label
+--- @param id number|string Task ID
+--- @param status string "pending", "in_progress", or "done"
+function M.set_task_status(id, status)
+    local in_progress_label_id = get_in_progress_label()
+    if not in_progress_label_id then
+        vim.notify("Failed to get in_progress label", vim.log.levels.WARN, { title = "Dooing" })
+        return
+    end
+    
+    -- Get current task to check existing labels
+    local task_url = string.format("https://api.todoist.com/rest/v2/tasks/%s", id)
+    local task_res = curl({ task_url })
+    if not task_res or task_res == "" then
+        return
+    end
+    
+    local ok, task = pcall(vim.fn.json_decode, task_res)
+    if not ok or not task.labels then
+        return
+    end
+    
+    local current_labels = {}
+    local has_in_progress = false
+    
+    -- Copy existing labels, excluding in_progress
+    for _, label_id in ipairs(task.labels) do
+        if tostring(label_id) ~= tostring(in_progress_label_id) then
+            table.insert(current_labels, label_id)
+        else
+            has_in_progress = true
+        end
+    end
+    
+    -- Add in_progress label if needed
+    if status == "in_progress" and not has_in_progress then
+        table.insert(current_labels, in_progress_label_id)
+    end
+    
+    -- Update task labels
+    local update_payload = vim.fn.json_encode({ labels = current_labels })
+    curl({
+        "-H", "Content-Type: application/json",
+        "-X", "POST",
+        task_url,
+        "-d", update_payload,
+    })
 end
 
 --- Add a new task to Todoist

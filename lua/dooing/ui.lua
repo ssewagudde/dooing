@@ -629,7 +629,14 @@ local function handle_search_query(query)
 	local valid_lines = {} -- Store valid todo lines
 	if #results > 0 then
 		for _, result in ipairs(results) do
-			local icon = result.todo.done and done_icon or pending_icon
+			local icon
+			if result.todo.status == "done" then
+				icon = done_icon
+			elseif result.todo.status == "in_progress" then
+				icon = in_progress_icon
+			else
+				icon = pending_icon
+			end
 			local line = string.format("  %s %s", icon, result.todo.text)
 			table.insert(lines, line)
 			table.insert(valid_lines, { line_index = #lines, result = result })
@@ -1213,8 +1220,16 @@ local function render_todo(todo, formatting, lang, notes_icon)
 
 	local components = {}
 
-	-- Get config formatting
-	local format = todo.done and formatting.done.format or formatting.pending.format
+	-- Get config formatting based on status
+	local format
+	if todo.status == "done" then
+		format = formatting.done.format
+	elseif todo.status == "in_progress" then
+		format = formatting.in_progress.format
+	else
+		format = formatting.pending.format
+	end
+	
 	if not format then
 		format = { "notes_icon", "icon", "text", "ect", "relative_time" }
 	end
@@ -1223,9 +1238,9 @@ local function render_todo(todo, formatting, lang, notes_icon)
 	for _, part in ipairs(format) do
 		if part == "icon" then
 			local icon
-			if todo.done then
+			if todo.status == "done" then
 				icon = formatting.done.icon
-			elseif todo.in_progress then
+			elseif todo.status == "in_progress" then
 				icon = formatting.in_progress.icon
 			else
 				icon = formatting.pending.icon
@@ -1263,7 +1278,7 @@ local function render_todo(todo, formatting, lang, notes_icon)
 					due_date_str = "[" .. formatted_date .. "]"
 				end
 				local current_time = os.time()
-				if not todo.done and todo.due_at < current_time then
+				if todo.status ~= "done" and todo.due_at < current_time then
 					due_date_str = due_date_str .. " [OVERDUE]"
 				end
 				table.insert(components, due_date_str)
@@ -1383,8 +1398,10 @@ function M.render_todos()
 			if todo_idx then
 				local todo = state.todos[todo_idx]
 				-- Base todo highlight
-				if todo.done then
+				if todo.status == "done" then
 					add_hl(line_nr, 0, -1, "DooingDone")
+				elseif todo.status == "in_progress" then
+					add_hl(line_nr, 0, -1, "DooingInProgress")
 				else
 					local hl_group = get_priority_highlight(todo.priorities)
 					add_hl(line_nr, 0, -1, hl_group)

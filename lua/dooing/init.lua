@@ -89,10 +89,12 @@ function M.setup(opts)
 		elseif command == "list" then
 			-- Print all todos with their indices
 			for i, todo in ipairs(state.todos) do
-				local status = todo.done and "✓" or "○"
+				local status_icons = { pending = "○", in_progress = "◐", done = "✓" }
+				local status = status_icons[todo.status] or "○"
 
 				-- Build metadata string
 				local metadata = {}
+				table.insert(metadata, "status: " .. (todo.status or "pending"))
 				if todo.priorities and #todo.priorities > 0 then
 					table.insert(metadata, "priorities: " .. table.concat(todo.priorities, ", "))
 				end
