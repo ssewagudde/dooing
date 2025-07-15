@@ -54,18 +54,6 @@ local function auto_render(fn)
 	end
 end
 
--- Icon helper for status-based icons
-local function get_status_icon(status)
-	local formatting = config.options.formatting
-	if status == "done" then
-		return formatting.done.icon
-	elseif status == "in_progress" then
-		return formatting.in_progress.icon
-	else
-		return formatting.pending.icon
-	end
-end
-
 --------------------------------------------------
 -- Local Variables and Cache
 --------------------------------------------------
@@ -249,7 +237,7 @@ edit_todo = auto_render(function()
 end)
 
 -- Handles editing priorities
-edit_priorities = function()
+edit_priorities = auto_render(function()
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
 	local todo_index = cursor[1] - 1
 	local line_content = vim.api.nvim_buf_get_lines(buf_id, todo_index, todo_index + 1, false)[1]
@@ -372,7 +360,7 @@ edit_priorities = function()
 				-- Update todo priorities
 				state.todos[todo_index].priorities = #selected_priority_names > 0 and selected_priority_names or nil
 				state.save_todos()
-				M.render_todos()
+				-- Auto-render will handle this
 			end, { buffer = select_buf, nowait = true })
 
 			-- Add escape/quit keymaps
@@ -394,7 +382,7 @@ edit_priorities = function()
 			})
 		end
 	end
-end
+end)
 
 --------------------------------------------------
 -- Core Window Management
@@ -506,7 +494,7 @@ create_help_window = function()
 	vim.keymap.set("n", config.options.keymaps.toggle_help, close_help, { buffer = help_buf_id, nowait = true })
 end
 
-local function prompt_export()
+local prompt_export = function()
 	local default_path = vim.fn.expand("~/todos.json")
 
 	vim.ui.input({
@@ -515,7 +503,7 @@ local function prompt_export()
 		completion = "file",
 	}, function(file_path)
 		if not file_path or file_path == "" then
-			vim.notify("Export cancelled", vim.log.levels.INFO)
+			notify.info("Export cancelled")
 			return
 		end
 
@@ -524,14 +512,14 @@ local function prompt_export()
 
 		local success, message = state.export_todos(file_path)
 		if success then
-			vim.notify(message, vim.log.levels.INFO)
+			notify.success(message)
 		else
-			vim.notify(message, vim.log.levels.ERROR)
+			notify.error(message)
 		end
 	end)
 end
 
-local function prompt_import(callback)
+local prompt_import = auto_render(function(callback)
 	local default_path = vim.fn.expand("~/todos.json")
 
 	vim.ui.input({
@@ -549,19 +537,19 @@ local function prompt_import(callback)
 
 		local success, message = state.import_todos(file_path)
 		if success then
-			vim.notify(message, vim.log.levels.INFO)
+			notify.success(message)
 			if callback then
 				callback()
 			end
-			M.render_todos()
+			-- Auto-render will handle this
 		else
-			vim.notify(message, vim.log.levels.ERROR)
+			notify.error(message)
 		end
 	end)
-end
+end)
 
 -- Creates and manages the tags window
-create_tag_window = function()
+create_tag_window = auto_render(function()
 	if tag_win_id and vim.api.nvim_win_is_valid(tag_win_id) then
 		vim.api.nvim_win_close(tag_win_id, true)
 		tag_win_id = nil
@@ -608,7 +596,7 @@ create_tag_window = function()
 			vim.api.nvim_win_close(tag_win_id, true)
 			tag_win_id = nil
 			tag_buf_id = nil
-			M.render_todos()
+			-- Auto-render will handle this
 		end
 	end, { buffer = tag_buf_id })
 
@@ -621,7 +609,7 @@ create_tag_window = function()
 					state.rename_tag(old_tag, new_tag)
 					local tags = state.get_all_tags()
 					vim.api.nvim_buf_set_lines(tag_buf_id, 0, -1, false, tags)
-					M.render_todos()
+					-- Auto-render will handle this
 				end
 			end)
 		end
@@ -637,7 +625,7 @@ create_tag_window = function()
 				tags = { "No tags found" }
 			end
 			vim.api.nvim_buf_set_lines(tag_buf_id, 0, -1, false, tags)
-			M.render_todos()
+			-- Auto-render will handle this
 		end
 	end, { buffer = tag_buf_id })
 
@@ -647,7 +635,7 @@ create_tag_window = function()
 		tag_buf_id = nil
 		vim.api.nvim_set_current_win(win_id)
 	end, { buffer = tag_buf_id })
-end
+end)
 
 -- Handle search queries
 local function handle_search_query(query)

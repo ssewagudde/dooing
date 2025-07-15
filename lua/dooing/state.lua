@@ -28,6 +28,28 @@ end
 -- Expose it as part of the module
 M.save_todos = save_todos
 
+-- Migration system with version tracking
+local CURRENT_DATA_VERSION = 2
+local function get_data_version()
+  local version_file = config.options.save_path .. ".version"
+  local file = io.open(version_file, "r")
+  if file then
+    local version = tonumber(file:read("*all"))
+    file:close()
+    return version or 1
+  end
+  return 1 -- Default to version 1 for existing data
+end
+
+local function set_data_version(version)
+  local version_file = config.options.save_path .. ".version"
+  local file = io.open(version_file, "w")
+  if file then
+    file:write(tostring(version))
+    file:close()
+  end
+end
+
 -- Helper function to migrate old todo format to new status-based format
 local function migrate_todo(todo)
   -- If todo already has status field, return as-is
@@ -49,6 +71,26 @@ local function migrate_todo(todo)
   todo.in_progress = nil
   
   return todo
+end
+
+-- Perform data migration if needed
+local function migrate_data_if_needed(todos)
+  local current_version = get_data_version()
+  
+  if current_version >= CURRENT_DATA_VERSION then
+    return todos -- No migration needed
+  end
+  
+  -- Version 1 -> 2: Migrate from done/in_progress to status
+  if current_version < 2 then
+    for i, todo in ipairs(todos) do
+      todos[i] = migrate_todo(todo)
+    end
+  end
+  
+  -- Update version
+  set_data_version(CURRENT_DATA_VERSION)
+  return todos
 end
 
 function M.load_todos()
@@ -91,13 +133,12 @@ function M.load_todos()
     file:close()
     if content and content ~= "" then
       local loaded_todos = vim.fn.json_decode(content)
-      -- Migrate todos to new format
-      M.todos = {}
-      for _, todo in ipairs(loaded_todos) do
-        table.insert(M.todos, migrate_todo(todo))
+      -- Migrate todos if needed (only runs once per version)
+      M.todos = migrate_data_if_needed(loaded_todos)
+      -- Save if migration occurred
+      if get_data_version() == CURRENT_DATA_VERSION then
+        save_todos()
       end
-      -- Save migrated todos back to file
-      save_todos()
     end
   end
 end
@@ -337,37 +378,7 @@ function M.set_filter(tag)
 	M.active_filter = tag
 end
 
-function M.delete_todo(index)
-  if config.options.backend == "todoist" then
-    local todo = M.todos[index]
-    if todo then
-      local api = require("dooing.api.todoist")
-      api.delete_task(todo.id)
-      table.remove(M.todos, index)
-    end
-    return
-  end
-  if M.todos[index] then
-    table.remove(M.todos, index)
-    save_todos()
-  end
-end
 
-function M.delete_completed()
-  if config.options.backend == "todoist" then
-    -- Reload open tasks from Todoist (completed tasks are not returned)
-    M.load_todos()
-    return
-  end
-  local remaining_todos = {}
-  for _, todo in ipairs(M.todos) do
-    if todo.status ~= "done" then
-      table.insert(remaining_todos, todo)
-    end
-  end
-  M.todos = remaining_todos
-  save_todos()
-end
 
 -- Helper function for hashing a todo object
 local function gen_hash(todo)
@@ -802,6 +813,51 @@ end
 local deleted_todos = {}
 local MAX_UNDO_HISTORY = 100
 
+-- Unified delete system
+local function unified_delete(filter_fn, store_undo)
+	if config.options.backend == "todoist" then
+		-- For Todoist, we need to handle each todo individually
+		local todos_to_delete = {}
+		for i, todo in ipairs(M.todos) do
+			if filter_fn(todo, i) then
+				table.insert(todos_to_delete, {todo = todo, index = i})
+			end
+		end
+		
+		-- Delete from Todoist and store for undo if requested
+		local api = require("dooing.api.todoist")
+		for _, item in ipairs(todos_to_delete) do
+			if store_undo then
+				M.store_deleted_todo(item.todo, item.index)
+			end
+			api.delete_task(item.todo.id)
+		end
+		
+		-- Reload to get updated state
+		M.load_todos()
+		return #todos_to_delete
+	else
+		-- For local backend
+		local remaining_todos = {}
+		local removed_count = 0
+		
+		for i, todo in ipairs(M.todos) do
+			if filter_fn(todo, i) then
+				if store_undo then
+					M.store_deleted_todo(todo, i - removed_count)
+				end
+				removed_count = removed_count + 1
+			else
+				table.insert(remaining_todos, todo)
+			end
+		end
+		
+		M.todos = remaining_todos
+		save_todos()
+		return removed_count
+	end
+end
+
 -- Add these functions to state.lua:
 function M.store_deleted_todo(todo, index)
 	table.insert(deleted_todos, 1, {
@@ -836,32 +892,30 @@ function M.undo_delete()
 	return true
 end
 
--- Modify the delete_todo function in state.lua:
+-- Unified delete functions using the new system
 function M.delete_todo(index)
-	if M.todos[index] then
-		local todo = M.todos[index]
-		M.store_deleted_todo(todo, index)
-		table.remove(M.todos, index)
-		save_todos()
+	if not M.todos[index] then
+		return false
 	end
+	
+	local count = unified_delete(function(todo, i)
+		return i == index
+	end, true) -- store_undo = true
+	
+	return count > 0
 end
 
--- Add to delete_completed in state.lua:
 function M.delete_completed()
-	local remaining_todos = {}
-	local removed_count = 0
+	local count = unified_delete(function(todo, i)
+		return todo.status == "done"
+	end, true) -- store_undo = true
+	
+	return count
+end
 
-	for i, todo in ipairs(M.todos) do
-		if todo.status == "done" then
-			M.store_deleted_todo(todo, i - removed_count)
-			removed_count = removed_count + 1
-		else
-			table.insert(remaining_todos, todo)
-		end
-	end
-
-	M.todos = remaining_todos
-	save_todos()
+-- Delete todos by filter (for future extensibility)
+function M.delete_by_filter(filter_fn, store_undo)
+	return unified_delete(filter_fn, store_undo or false)
 end
 
 return M
