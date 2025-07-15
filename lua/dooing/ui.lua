@@ -1639,62 +1639,59 @@ function M.new_todo()
 	end)
 end
 
--- Toggles the completion status of the current todo
-function M.toggle_todo()
+-- Centralized UI action helper
+local function execute_todo_action(action_name, action_fn, success_msg, validation_fn)
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
 	local current_line = cursor[1]
 	local todo_index = line_to_todo[current_line]
+	
 	if not todo_index then
-		vim.notify("No todo selected to toggle", vim.log.levels.WARN)
+		vim.notify("No todo selected", vim.log.levels.WARN)
 		return
 	end
-	state.toggle_todo(todo_index)
-	M.render_todos()
+	
+	-- Optional validation before action
+	if validation_fn then
+		local valid, msg = validation_fn(state.todos[todo_index])
+		if not valid then
+			vim.notify(msg, vim.log.levels.WARN)
+			return
+		end
+	end
+	
+	-- Execute action
+	local success = action_fn(todo_index)
+	if success then
+		M.render_todos()
+		if success_msg then
+			vim.notify(success_msg, vim.log.levels.INFO)
+		end
+	end
+end
 
+-- Toggles the completion status of the current todo
+function M.toggle_todo()
+	execute_todo_action("toggle", state.toggle_todo)
 end
 
 -- Cancel in-progress todo back to pending
 function M.cancel_in_progress()
-	local cursor = vim.api.nvim_win_get_cursor(win_id)
-	local current_line = cursor[1]
-	local todo_index = line_to_todo[current_line]
-	if not todo_index then
-		vim.notify("No todo selected to cancel", vim.log.levels.WARN)
-		return
-	end
-	
-	local todo = state.todos[todo_index]
-	if todo.status == "in_progress" then
-		state.cancel_in_progress(todo_index)
-		M.render_todos()
-		vim.notify("Todo cancelled back to pending", vim.log.levels.INFO)
-	elseif todo.status == "done" then
-		state.cancel_in_progress(todo_index)
-		M.render_todos()
-		vim.notify("Todo cancelled back to pending", vim.log.levels.INFO)
-	else
-		vim.notify("Only in-progress or completed todos can be cancelled", vim.log.levels.WARN)
-	end
+	execute_todo_action("cancel", state.cancel_in_progress, "Todo cancelled back to pending", function(todo)
+		if todo.status == "pending" then
+			return false, "Todo is already pending"
+		end
+		return true
+	end)
 end
 
 -- Complete todo directly (Shift+X)
 function M.complete_todo()
-	local cursor = vim.api.nvim_win_get_cursor(win_id)
-	local current_line = cursor[1]
-	local todo_index = line_to_todo[current_line]
-	if not todo_index then
-		vim.notify("No todo selected to complete", vim.log.levels.WARN)
-		return
-	end
-	
-	local todo = state.todos[todo_index]
-	if todo.status == "done" then
-		vim.notify("Todo is already completed", vim.log.levels.INFO)
-	else
-		state.complete_todo(todo_index)
-		M.render_todos()
-		vim.notify("Todo marked as completed", vim.log.levels.INFO)
-	end
+	execute_todo_action("complete", state.complete_todo, "Todo marked as completed", function(todo)
+		if todo.status == "done" then
+			return false, "Todo is already completed"
+		end
+		return true
+	end)
 end
 
 -- Deletes the current todo item

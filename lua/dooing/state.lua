@@ -121,91 +121,81 @@ function M.add_todo(text, priority_names)
   save_todos()
 end
 
-function M.toggle_todo(index)
-  if config.options.backend == "todoist" then
-    local todo = M.todos[index]
-    if todo then
-      local api = require("dooing.api.todoist")
-      -- Cycle through states: pending -> in_progress -> done -> pending
-      if todo.status == "pending" then
-        api.set_task_status(todo.id, "in_progress")
-        todo.status = "in_progress"
-      elseif todo.status == "in_progress" then
-        api.close_task(todo.id)
-        todo.status = "done"
-      else -- status == "done"
-        api.reopen_task(todo.id)
-        api.set_task_status(todo.id, "pending")
-        todo.status = "pending"
-      end
-    end
-    return
+-- Centralized Todoist API status synchronization
+local function sync_todoist_status(todo, new_status)
+  local api = require("dooing.api.todoist")
+  
+  if new_status == "done" and todo.status ~= "done" then
+    api.close_task(todo.id)
+  elseif todo.status == "done" and new_status ~= "done" then
+    api.reopen_task(todo.id)
   end
-  if M.todos[index] then
-    -- Cycle through states: pending -> in_progress -> done -> pending
-    if M.todos[index].status == "pending" then
-      M.todos[index].status = "in_progress"
-    elseif M.todos[index].status == "in_progress" then
-      M.todos[index].status = "done"
-      M.todos[index].completed_at = os.time()
+  
+  if new_status == "in_progress" then
+    api.set_task_status(todo.id, "in_progress")
+  elseif new_status == "pending" then
+    api.set_task_status(todo.id, "pending")
+  end
+end
+
+-- Consolidated status management function
+function M.set_todo_status(index, target_status)
+  if not M.todos[index] then
+    return false
+  end
+  
+  local todo = M.todos[index]
+  local old_status = todo.status
+  
+  -- Handle cycling behavior
+  if target_status == "cycle" then
+    if todo.status == "pending" then
+      target_status = "in_progress"
+    elseif todo.status == "in_progress" then
+      target_status = "done"
     else -- status == "done"
-      M.todos[index].status = "pending"
-      M.todos[index].completed_at = nil
+      target_status = "pending"
     end
+  end
+  
+  -- No change needed
+  if todo.status == target_status then
+    return true
+  end
+  
+  -- Update status
+  todo.status = target_status
+  
+  -- Handle completion timestamp
+  if target_status == "done" then
+    todo.completed_at = os.time()
+  elseif old_status == "done" then
+    todo.completed_at = nil
+  end
+  
+  -- Sync with backend
+  if config.options.backend == "todoist" then
+    sync_todoist_status(todo, target_status)
+  else
     save_todos()
   end
+  
+  return true
+end
+
+function M.toggle_todo(index)
+  return M.set_todo_status(index, "cycle")
 end
 
 function M.cancel_in_progress(index)
-  if config.options.backend == "todoist" then
-    local todo = M.todos[index]
-    if todo and todo.status == "in_progress" then
-      local api = require("dooing.api.todoist")
-      api.set_task_status(todo.id, "pending")
-      todo.status = "pending"
-    elseif todo and todo.status == "done" then
-      -- Also allow canceling completed tasks back to pending
-      local api = require("dooing.api.todoist")
-      api.reopen_task(todo.id)
-      api.set_task_status(todo.id, "pending")
-      todo.status = "pending"
-    end
-    return
-  end
-  
-  if M.todos[index] then
-    -- Cancel in_progress or done tasks back to pending
-    if M.todos[index].status == "in_progress" then
-      M.todos[index].status = "pending"
-      save_todos()
-    elseif M.todos[index].status == "done" then
-      M.todos[index].status = "pending"
-      M.todos[index].completed_at = nil
-      save_todos()
-    end
-  end
+  return M.set_todo_status(index, "pending")
 end
 
 function M.complete_todo(index)
-  if config.options.backend == "todoist" then
-    local todo = M.todos[index]
-    if todo and todo.status ~= "done" then
-      local api = require("dooing.api.todoist")
-      api.close_task(todo.id)
-      todo.status = "done"
-    end
-    return
-  end
-  
-  if M.todos[index] then
-    -- Complete todo directly from any state
-    if M.todos[index].status ~= "done" then
-      M.todos[index].status = "done"
-      M.todos[index].completed_at = os.time()
-      save_todos()
-    end
-  end
+  return M.set_todo_status(index, "done")
 end
+
+
 
 -- Parse date string in the format MM/DD/YYYY
 local function parse_date(date_str, format)
