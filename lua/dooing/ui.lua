@@ -123,17 +123,6 @@ local create_tag_window
 local edit_todo
 local edit_priorities
 
--- Helper function to get status icons
-local function get_status_icon(status)
-	if status == "done" then
-		return config.options.formatting.done.icon
-	elseif status == "in_progress" then
-		return config.options.formatting.in_progress.icon
-	else
-		return config.options.formatting.pending.icon
-	end
-end
-
 --------------------------------------------------
 -- Highlights Setup
 --------------------------------------------------
@@ -238,6 +227,17 @@ local function get_priority_highlight(priorities)
 	end
 
 	return highlight_cache.pending
+end
+
+-- Helper function to get status icons
+local function get_status_icon(status)
+	if status == "done" then
+		return config.options.formatting.done.icon
+	elseif status == "in_progress" then
+		return config.options.formatting.in_progress.icon
+	else
+		return config.options.formatting.pending.icon
+	end
 end
 
 --------------------------------------------------
