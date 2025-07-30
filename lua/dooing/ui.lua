@@ -49,15 +49,18 @@ local function auto_render(fn)
 		-- Store the current window ID before the action
 		local current_win_id = win_id
 		local current_buf_id = buf_id
+		print("DEBUG: auto_render start - win_id=" .. (win_id or "nil") .. ", buf_id=" .. (buf_id or "nil"))
 		
 		local result = fn(...)
 		
 		-- Try to find the todo window if win_id is lost
 		if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+			print("DEBUG: win_id lost, searching...")
 			-- Look for a window with our buffer
 			if current_buf_id and vim.api.nvim_buf_is_valid(current_buf_id) then
 				for _, w in ipairs(vim.api.nvim_list_wins()) do
 					if vim.api.nvim_win_get_buf(w) == current_buf_id then
+						print("DEBUG: Found window by buf_id: " .. w)
 						win_id = w
 						buf_id = current_buf_id
 						break
@@ -71,6 +74,7 @@ local function auto_render(fn)
 					-- Check if this looks like a dooing buffer
 					for _, line in ipairs(lines) do
 						if line:match("[○◐✓]") then
+							print("DEBUG: Found window by content: " .. w)
 							win_id = w
 							buf_id = buf
 							break
@@ -81,8 +85,13 @@ local function auto_render(fn)
 			end
 		end
 		
+		print("DEBUG: auto_render end - win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
 		if win_id and vim.api.nvim_win_is_valid(win_id) then
+			print("DEBUG: Calling M.render_todos()")
 			M.render_todos()
+			print("DEBUG: M.render_todos() completed")
+		else
+			print("DEBUG: Skipping render - no valid window")
 		end
 		return result
 	end
@@ -1797,12 +1806,14 @@ end)
 
 -- Complete todo directly (Shift+X)
 M.complete_todo = auto_render(function()
+	print("DEBUG: complete_todo called")
 	execute_todo_action("complete", state.complete_todo, "Todo marked as completed", function(todo)
 		if todo.status == "done" then
 			return false, "Todo is already completed"
 		end
 		return true
 	end)
+	print("DEBUG: complete_todo finished")
 end)
 
 -- Deletes the current todo item
