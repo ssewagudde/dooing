@@ -1269,11 +1269,17 @@ local function create_window()
 	setup_keymap("close_window", M.close_window)
 	setup_keymap("refresh_todos", M.reload_todos)
 	
-	-- Debug: Add a test keymap to verify keybinding works
+	-- Debug: Add test keymaps to verify keybinding works
 	vim.keymap.set("n", "Z", function()
 		print("DEBUG: Z key pressed - calling M.complete_todo directly")
 		M.complete_todo()
 	end, { buffer = buf_id, nowait = true })
+	
+	-- Debug: Add explicit X keymap with debugging
+	vim.keymap.set("n", "X", function()
+		print("DEBUG: X key pressed explicitly!")
+		M.complete_todo()
+	end, { buffer = buf_id, nowait = true, desc = "Complete todo (debug)" })
 	setup_keymap("undo_delete", auto_render(function()
 		if state.undo_delete() then
 			notify.success("Todo restored")
