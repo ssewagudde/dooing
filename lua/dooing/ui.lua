@@ -1248,7 +1248,10 @@ local function create_window()
 	-- Setup keymaps
 	local function setup_keymap(key_option, callback)
 		if config.options.keymaps[key_option] then
+			print("DEBUG: Setting up keymap " .. key_option .. " = " .. config.options.keymaps[key_option])
 			vim.keymap.set("n", config.options.keymaps[key_option], callback, { buffer = buf_id, nowait = true })
+		else
+			print("DEBUG: No keymap found for " .. key_option)
 		end
 	end
 
@@ -1265,6 +1268,12 @@ local function create_window()
 	setup_keymap("delete_completed", M.delete_completed)
 	setup_keymap("close_window", M.close_window)
 	setup_keymap("refresh_todos", M.reload_todos)
+	
+	-- Debug: Add a test keymap to verify keybinding works
+	vim.keymap.set("n", "Z", function()
+		print("DEBUG: Z key pressed - calling M.complete_todo directly")
+		M.complete_todo()
+	end, { buffer = buf_id, nowait = true })
 	setup_keymap("undo_delete", auto_render(function()
 		if state.undo_delete() then
 			notify.success("Todo restored")
