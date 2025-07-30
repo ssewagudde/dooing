@@ -217,6 +217,8 @@ function M.set_todo_status(index, target_status)
   -- Sync with backend
   if config.options.backend == "todoist" then
     sync_todoist_status(todo, target_status)
+    -- Reload todos from Todoist to ensure consistency
+    M.load_todos()
   else
     save_todos()
   end

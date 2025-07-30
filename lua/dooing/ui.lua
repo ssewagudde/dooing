@@ -1696,29 +1696,29 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 end
 
 -- Toggles the completion status of the current todo
-function M.toggle_todo()
+M.toggle_todo = auto_render(function()
 	execute_todo_action("toggle", state.toggle_todo)
-end
+end)
 
 -- Cancel in-progress todo back to pending
-function M.cancel_in_progress()
+M.cancel_in_progress = auto_render(function()
 	execute_todo_action("cancel", state.cancel_in_progress, "Todo cancelled back to pending", function(todo)
 		if todo.status == "pending" then
 			return false, "Todo is already pending"
 		end
 		return true
 	end)
-end
+end)
 
 -- Complete todo directly (Shift+X)
-function M.complete_todo()
+M.complete_todo = auto_render(function()
 	execute_todo_action("complete", state.complete_todo, "Todo marked as completed", function(todo)
 		if todo.status == "done" then
 			return false, "Todo is already completed"
 		end
 		return true
 	end)
-end
+end)
 
 -- Deletes the current todo item
 M.delete_todo = auto_render(function()
