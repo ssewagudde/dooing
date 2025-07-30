@@ -881,9 +881,13 @@ function M.parse_time_estimation(time_str)
 end
 
 -- Add estimated completion time to todo
-local function add_time_estimation()
-	local current_line = vim.api.nvim_win_get_cursor(0)[1]
-	local todo_index = current_line - (state.active_filter and 3 or 1)
+local add_time_estimation = auto_render(function()
+	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
+	local todo_index = line_to_todo[current_line]
+	if not todo_index then
+		notify.warn("No todo selected for time estimation")
+		return
+	end
 
 	safe_input({
 		prompt = "Estimated completion time (e.g., 15m, 2h, 1d, 0.5w): ",
@@ -894,37 +898,40 @@ local function add_time_estimation()
 			if hours then
 				state.todos[todo_index].estimated_hours = hours
 				state.save_todos()
-				vim.notify("Time estimation added successfully", vim.log.levels.INFO)
-				M.render_todos()
+				notify.success("Time estimation added successfully")
+				-- Auto-render will handle the UI update
 			else
-				vim.notify("Error adding time estimation: " .. (err or "Unknown error"), vim.log.levels.ERROR)
+				notify.error("Error adding time estimation: " .. (err or "Unknown error"))
 			end
 		end
 	end)
-end
+end)
 
 -- Remove estimated completion time from todo
-local function remove_time_estimation()
-	local current_line = vim.api.nvim_win_get_cursor(0)[1]
-	local todo_index = current_line - (state.active_filter and 3 or 1)
+local remove_time_estimation = auto_render(function()
+	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
+	local todo_index = line_to_todo[current_line]
+	if not todo_index then
+		notify.warn("No todo selected for removing time estimation")
+		return
+	end
 
 	if state.todos[todo_index] then
 		state.todos[todo_index].estimated_hours = nil
 		state.save_todos()
-		vim.notify("Time estimation removed successfully", vim.log.levels.INFO)
-		M.render_todos()
+		notify.success("Time estimation removed successfully")
+		-- Auto-render will handle the UI update
 	else
-		vim.notify("Error removing time estimation", vim.log.levels.ERROR)
+		notify.error("Error removing time estimation")
 	end
-end
+end)
 
 -- Add due date to to-do in the format MM/DD/YYYY
--- In ui.lua, update the add_due_date function
-local function add_due_date()
-	local current_line = vim.api.nvim_win_get_cursor(0)[1]
+local add_due_date = auto_render(function()
+	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
 	local todo_index = line_to_todo[current_line]
 	if not todo_index then
-		vim.notify("No todo selected for due date", vim.log.levels.WARN)
+		notify.warn("No todo selected for due date")
 		return
 	end
 
@@ -933,35 +940,33 @@ local function add_due_date()
 			local success, err = state.add_due_date(todo_index, date_str)
 
 			if success then
-				M.render_todos()
-
-				vim.notify("Due date added successfully", vim.log.levels.INFO)
+				-- Auto-render will handle the UI update
+				notify.success("Due date added successfully")
 			else
-				vim.notify("Error adding due date: " .. (err or "Unknown error"), vim.log.levels.ERROR)
+				notify.error("Error adding due date: " .. (err or "Unknown error"))
 			end
 		end
 	end, { language = "en" })
-end
+end)
 
 -- Remove due date from to-do
-local function remove_due_date()
-	local current_line = vim.api.nvim_win_get_cursor(0)[1]
+local remove_due_date = auto_render(function()
+	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
 	local todo_index = line_to_todo[current_line]
 	if not todo_index then
-		vim.notify("No todo selected for removing due date", vim.log.levels.WARN)
+		notify.warn("No todo selected for removing due date")
 		return
 	end
 
 	local success = state.remove_due_date(todo_index)
 
 	if success then
-		M.render_todos()
-
-		vim.notify("Due date removed successfully", vim.log.levels.INFO)
+		-- Auto-render will handle the UI update
+		notify.success("Due date removed successfully")
 	else
-		vim.notify("Error removing due date", vim.log.levels.ERROR)
+		notify.error("Error removing due date")
 	end
-end
+end)
 
 local function open_todo_scratchpad()
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
