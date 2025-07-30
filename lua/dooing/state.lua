@@ -167,37 +167,28 @@ local function sync_todoist_status(todo, new_status, old_status)
   local api = require("dooing.api.todoist")
   -- Use the passed old_status instead of todo.status which might already be changed
   local current_status = old_status or todo.status
-  print("DEBUG: sync_todoist_status - todo.id=" .. (todo.id or "nil") .. ", old_status=" .. (current_status or "nil") .. ", new_status=" .. (new_status or "nil"))
   
   if new_status == "done" and current_status ~= "done" then
-    print("DEBUG: Calling api.close_task for todo.id=" .. todo.id)
     api.close_task(todo.id)
   elseif current_status == "done" and new_status ~= "done" then
-    print("DEBUG: Calling api.reopen_task for todo.id=" .. todo.id)
     api.reopen_task(todo.id)
   end
   
   if new_status == "in_progress" then
-    print("DEBUG: Calling api.set_task_status to in_progress for todo.id=" .. todo.id)
     api.set_task_status(todo.id, "in_progress")
   elseif new_status == "pending" then
-    print("DEBUG: Calling api.set_task_status to pending for todo.id=" .. todo.id)
     api.set_task_status(todo.id, "pending")
   end
-  print("DEBUG: sync_todoist_status completed")
 end
 
 -- Consolidated status management function
 function M.set_todo_status(index, target_status)
-  print("DEBUG: set_todo_status called with index=" .. (index or "nil") .. ", target_status=" .. (target_status or "nil"))
   if not M.todos[index] then
-    print("DEBUG: Todo not found at index " .. (index or "nil"))
     return false
   end
   
   local todo = M.todos[index]
   local old_status = todo.status
-  print("DEBUG: Todo found: " .. todo.text .. ", current status: " .. (old_status or "nil"))
   
   -- Handle cycling behavior
   if target_status == "cycle" then
@@ -216,11 +207,8 @@ function M.set_todo_status(index, target_status)
   end
   
   -- Sync with backend BEFORE updating local status
-  print("DEBUG: Backend is: " .. (config.options.backend or "nil"))
   if config.options.backend == "todoist" then
-    print("DEBUG: Syncing with Todoist...")
     sync_todoist_status(todo, target_status, old_status)
-    print("DEBUG: Todoist sync completed - NOT reloading immediately to preserve local state")
     -- Don't reload immediately as it overwrites our local change
     -- The change will be reflected on next window open or manual refresh
   end
@@ -237,9 +225,7 @@ function M.set_todo_status(index, target_status)
   
   -- Save locally if not using Todoist
   if config.options.backend ~= "todoist" then
-    print("DEBUG: Saving to local file...")
     save_todos()
-    print("DEBUG: Local save completed")
   end
   
   return true
@@ -254,7 +240,6 @@ function M.cancel_in_progress(index)
 end
 
 function M.complete_todo(index)
-  print("DEBUG: state.complete_todo called with index: " .. (index or "nil"))
   return M.set_todo_status(index, "done")
 end
 

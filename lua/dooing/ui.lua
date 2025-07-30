@@ -49,33 +49,28 @@ local function auto_render(fn)
 		-- Store the current window ID before the action
 		local current_win_id = win_id
 		local current_buf_id = buf_id
-		print("DEBUG: auto_render - stored win_id=" .. (current_win_id or "nil") .. ", buf_id=" .. (current_buf_id or "nil"))
 		
 		local result = fn(...)
 		
 		-- Try to find the todo window if win_id is lost
 		if not win_id or not vim.api.nvim_win_is_valid(win_id) then
-			print("DEBUG: win_id lost or invalid, searching for todo window...")
 			-- Look for a window with our buffer
 			if current_buf_id and vim.api.nvim_buf_is_valid(current_buf_id) then
 				for _, w in ipairs(vim.api.nvim_list_wins()) do
 					if vim.api.nvim_win_get_buf(w) == current_buf_id then
-						print("DEBUG: Found todo window with id=" .. w)
 						win_id = w
 						buf_id = current_buf_id
 						break
 					end
 				end
 			else
-				print("DEBUG: current_buf_id is invalid or nil: " .. (current_buf_id or "nil"))
-				-- Try to find any window with "to-dos" title or dooing content
+				-- Try to find any window with dooing content
 				for _, w in ipairs(vim.api.nvim_list_wins()) do
 					local buf = vim.api.nvim_win_get_buf(w)
 					local lines = vim.api.nvim_buf_get_lines(buf, 0, 5, false)
 					-- Check if this looks like a dooing buffer
 					for _, line in ipairs(lines) do
 						if line:match("[○◐✓]") then
-							print("DEBUG: Found dooing window by content with id=" .. w)
 							win_id = w
 							buf_id = buf
 							break
@@ -86,13 +81,8 @@ local function auto_render(fn)
 			end
 		end
 		
-		print("DEBUG: auto_render - final win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
 		if win_id and vim.api.nvim_win_is_valid(win_id) then
-			print("DEBUG: Calling M.render_todos()")
 			M.render_todos()
-			print("DEBUG: M.render_todos() completed")
-		else
-			print("DEBUG: Skipping render - window not valid")
 		end
 		return result
 	end
@@ -1186,8 +1176,6 @@ local function create_window()
 		footer = " [?] for help ",
 		footer_pos = "center",
 	})
-	
-	print("DEBUG: Window created with win_id=" .. (win_id or "nil") .. ", buf_id=" .. (buf_id or "nil"))
 
 	-- Create small keys window with main window position
 	local small_win = create_small_keys_window({
@@ -1395,9 +1383,7 @@ end
 
 -- Main function for todos rendering
 function M.render_todos()
-	print("DEBUG: render_todos called, buf_id=" .. (buf_id or "nil"))
 	if not buf_id then
-		print("DEBUG: No buf_id, returning")
 		return
 	end
 
@@ -1736,24 +1722,18 @@ end)
 
 -- Centralized UI action helper
 local function execute_todo_action(action_name, action_fn, success_msg, validation_fn)
-	print("DEBUG: execute_todo_action called with action: " .. action_name)
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
 	local current_line = cursor[1]
 	local todo_index = line_to_todo[current_line]
-	
-	print("DEBUG: current_line=" .. current_line .. ", todo_index=" .. (todo_index or "nil"))
 	
 	if not todo_index then
 		notify.warn("No todo selected")
 		return
 	end
 	
-	print("DEBUG: Found todo at index " .. todo_index .. ": " .. (state.todos[todo_index] and state.todos[todo_index].text or "nil"))
-	
 	-- Optional validation before action
 	if validation_fn then
 		local valid, msg = validation_fn(state.todos[todo_index])
-		print("DEBUG: Validation result: " .. tostring(valid) .. ", msg: " .. (msg or "nil"))
 		if not valid then
 			notify.warn(msg)
 			return
@@ -1761,9 +1741,7 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 	end
 	
 	-- Execute action (auto-render will handle re-rendering)
-	print("DEBUG: Calling action function...")
 	local success = action_fn(todo_index)
-	print("DEBUG: Action result: " .. tostring(success))
 	if success and success_msg then
 		notify.success(success_msg)
 	end
@@ -1786,9 +1764,7 @@ end)
 
 -- Complete todo directly (Shift+X)
 M.complete_todo = auto_render(function()
-	print("DEBUG: complete_todo function called")
 	execute_todo_action("complete", state.complete_todo, "Todo marked as completed", function(todo)
-		print("DEBUG: Validating todo status: " .. (todo.status or "nil"))
 		if todo.status == "done" then
 			return false, "Todo is already completed"
 		end
