@@ -62,8 +62,26 @@ local function auto_render(fn)
 					if vim.api.nvim_win_get_buf(w) == current_buf_id then
 						print("DEBUG: Found todo window with id=" .. w)
 						win_id = w
+						buf_id = current_buf_id
 						break
 					end
+				end
+			else
+				print("DEBUG: current_buf_id is invalid or nil: " .. (current_buf_id or "nil"))
+				-- Try to find any window with "to-dos" title or dooing content
+				for _, w in ipairs(vim.api.nvim_list_wins()) do
+					local buf = vim.api.nvim_win_get_buf(w)
+					local lines = vim.api.nvim_buf_get_lines(buf, 0, 5, false)
+					-- Check if this looks like a dooing buffer
+					for _, line in ipairs(lines) do
+						if line:match("[○◐✓]") then
+							print("DEBUG: Found dooing window by content with id=" .. w)
+							win_id = w
+							buf_id = buf
+							break
+						end
+					end
+					if win_id then break end
 				end
 			end
 		end

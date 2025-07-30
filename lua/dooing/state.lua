@@ -163,14 +163,16 @@ function M.add_todo(text, priority_names)
 end
 
 -- Centralized Todoist API status synchronization
-local function sync_todoist_status(todo, new_status)
+local function sync_todoist_status(todo, new_status, old_status)
   local api = require("dooing.api.todoist")
-  print("DEBUG: sync_todoist_status - todo.id=" .. (todo.id or "nil") .. ", old_status=" .. (todo.status or "nil") .. ", new_status=" .. (new_status or "nil"))
+  -- Use the passed old_status instead of todo.status which might already be changed
+  local current_status = old_status or todo.status
+  print("DEBUG: sync_todoist_status - todo.id=" .. (todo.id or "nil") .. ", old_status=" .. (current_status or "nil") .. ", new_status=" .. (new_status or "nil"))
   
-  if new_status == "done" and todo.status ~= "done" then
+  if new_status == "done" and current_status ~= "done" then
     print("DEBUG: Calling api.close_task for todo.id=" .. todo.id)
     api.close_task(todo.id)
-  elseif todo.status == "done" and new_status ~= "done" then
+  elseif current_status == "done" and new_status ~= "done" then
     print("DEBUG: Calling api.reopen_task for todo.id=" .. todo.id)
     api.reopen_task(todo.id)
   end
@@ -213,7 +215,17 @@ function M.set_todo_status(index, target_status)
     return true
   end
   
-  -- Update status
+  -- Sync with backend BEFORE updating local status
+  print("DEBUG: Backend is: " .. (config.options.backend or "nil"))
+  if config.options.backend == "todoist" then
+    print("DEBUG: Syncing with Todoist...")
+    sync_todoist_status(todo, target_status, old_status)
+    print("DEBUG: Todoist sync completed - NOT reloading immediately to preserve local state")
+    -- Don't reload immediately as it overwrites our local change
+    -- The change will be reflected on next window open or manual refresh
+  end
+  
+  -- Update status AFTER sync
   todo.status = target_status
   
   -- Handle completion timestamp
@@ -223,15 +235,8 @@ function M.set_todo_status(index, target_status)
     todo.completed_at = nil
   end
   
-  -- Sync with backend
-  print("DEBUG: Backend is: " .. (config.options.backend or "nil"))
-  if config.options.backend == "todoist" then
-    print("DEBUG: Syncing with Todoist...")
-    sync_todoist_status(todo, target_status)
-    print("DEBUG: Todoist sync completed - NOT reloading immediately to preserve local state")
-    -- Don't reload immediately as it overwrites our local change
-    -- The change will be reflected on next window open or manual refresh
-  else
+  -- Save locally if not using Todoist
+  if config.options.backend ~= "todoist" then
     print("DEBUG: Saving to local file...")
     save_todos()
     print("DEBUG: Local save completed")
