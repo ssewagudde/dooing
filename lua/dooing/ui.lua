@@ -1428,6 +1428,15 @@ function M.render_todos()
 	if not buf_id then
 		return
 	end
+	
+	print("DEBUG: render_todos - total todos: " .. #state.todos)
+	-- Debug: show status of first few todos
+	for i = 1, math.min(3, #state.todos) do
+		local todo = state.todos[i]
+		if todo then
+			print("DEBUG: Todo " .. i .. ": " .. (todo.text or "nil") .. " - status: " .. (todo.status or "nil"))
+		end
+	end
 
 	-- Create the buffer
 	vim.api.nvim_buf_set_option(buf_id, "modifiable", true)
@@ -1773,6 +1782,8 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 		return
 	end
 	
+	print("DEBUG: execute_todo_action - todo before: " .. (state.todos[todo_index].text or "nil") .. " - status: " .. (state.todos[todo_index].status or "nil"))
+	
 	-- Optional validation before action
 	if validation_fn then
 		local valid, msg = validation_fn(state.todos[todo_index])
@@ -1784,6 +1795,7 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 	
 	-- Execute action (auto-render will handle re-rendering)
 	local success = action_fn(todo_index)
+	print("DEBUG: execute_todo_action - todo after: " .. (state.todos[todo_index].text or "nil") .. " - status: " .. (state.todos[todo_index].status or "nil"))
 	if success and success_msg then
 		notify.success(success_msg)
 	end
