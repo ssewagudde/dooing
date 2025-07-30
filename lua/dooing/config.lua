@@ -24,15 +24,15 @@ M.defaults = {
 	formatting = {
 		pending = {
 			icon = "○",
-			format = { "notes_icon", "icon", "text", "ect", "due_date", "relative_time" },
+			format = { "notes_icon", "icon", "text", "ect", "due_date" },
 		},
 		in_progress = {
 			icon = "◐",
-			format = { "notes_icon", "icon", "text", "ect", "due_date", "relative_time" },
+			format = { "notes_icon", "icon", "text", "ect", "due_date" },
 		},
 		done = {
 			icon = "✓",
-			format = { "notes_icon", "icon", "text", "ect", "due_date", "relative_time" },
+			format = { "notes_icon", "icon", "text", "ect", "due_date" },
 		},
 	},
 	priorities = {
