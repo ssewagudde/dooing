@@ -1677,18 +1677,24 @@ end)
 
 -- Centralized UI action helper
 local function execute_todo_action(action_name, action_fn, success_msg, validation_fn)
+	print("DEBUG: execute_todo_action called with action: " .. action_name)
 	local cursor = vim.api.nvim_win_get_cursor(win_id)
 	local current_line = cursor[1]
 	local todo_index = line_to_todo[current_line]
+	
+	print("DEBUG: current_line=" .. current_line .. ", todo_index=" .. (todo_index or "nil"))
 	
 	if not todo_index then
 		notify.warn("No todo selected")
 		return
 	end
 	
+	print("DEBUG: Found todo at index " .. todo_index .. ": " .. (state.todos[todo_index] and state.todos[todo_index].text or "nil"))
+	
 	-- Optional validation before action
 	if validation_fn then
 		local valid, msg = validation_fn(state.todos[todo_index])
+		print("DEBUG: Validation result: " .. tostring(valid) .. ", msg: " .. (msg or "nil"))
 		if not valid then
 			notify.warn(msg)
 			return
@@ -1696,7 +1702,9 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 	end
 	
 	-- Execute action (auto-render will handle re-rendering)
+	print("DEBUG: Calling action function...")
 	local success = action_fn(todo_index)
+	print("DEBUG: Action result: " .. tostring(success))
 	if success and success_msg then
 		notify.success(success_msg)
 	end
@@ -1719,7 +1727,9 @@ end)
 
 -- Complete todo directly (Shift+X)
 M.complete_todo = auto_render(function()
+	print("DEBUG: complete_todo function called")
 	execute_todo_action("complete", state.complete_todo, "Todo marked as completed", function(todo)
+		print("DEBUG: Validating todo status: " .. (todo.status or "nil"))
 		if todo.status == "done" then
 			return false, "Todo is already completed"
 		end

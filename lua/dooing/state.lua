@@ -181,12 +181,15 @@ end
 
 -- Consolidated status management function
 function M.set_todo_status(index, target_status)
+  print("DEBUG: set_todo_status called with index=" .. (index or "nil") .. ", target_status=" .. (target_status or "nil"))
   if not M.todos[index] then
+    print("DEBUG: Todo not found at index " .. (index or "nil"))
     return false
   end
   
   local todo = M.todos[index]
   local old_status = todo.status
+  print("DEBUG: Todo found: " .. todo.text .. ", current status: " .. (old_status or "nil"))
   
   -- Handle cycling behavior
   if target_status == "cycle" then
@@ -235,6 +238,7 @@ function M.cancel_in_progress(index)
 end
 
 function M.complete_todo(index)
+  print("DEBUG: state.complete_todo called with index: " .. (index or "nil"))
   return M.set_todo_status(index, "done")
 end
 
