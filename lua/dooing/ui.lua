@@ -110,6 +110,15 @@ local function setup_highlights()
 	highlight_cache.help = "DooingHelpText"
 end
 
+-- Safe input function that doesn't conflict with snacks.nvim
+local function safe_input(opts, callback)
+	-- Use vim.fn.input instead of vim.ui.input to avoid conflicts
+	local result = vim.fn.input(opts.prompt or "", opts.default or "")
+	if callback then
+		callback(result)
+	end
+end
+
 -- Helper function to clean up priority selection resources
 local function cleanup_priority_selection(select_buf, select_win, keymaps)
 	-- Remove all keymaps
@@ -206,7 +215,7 @@ edit_todo = auto_render(function()
 		return
 	end
 	
-	vim.ui.input({ zindex = 300, prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
+	safe_input({ prompt = "Edit to-do: ", default = state.todos[todo_index].text }, function(input)
 		if not input or input == "" then
 			return
 		end
@@ -497,10 +506,9 @@ end
 local prompt_export = function()
 	local default_path = vim.fn.expand("~/todos.json")
 
-	vim.ui.input({
+	safe_input({
 		prompt = "Export todos to file: ",
 		default = default_path,
-		completion = "file",
 	}, function(file_path)
 		if not file_path or file_path == "" then
 			notify.info("Export cancelled")
@@ -522,10 +530,9 @@ end
 local prompt_import = auto_render(function(callback)
 	local default_path = vim.fn.expand("~/todos.json")
 
-	vim.ui.input({
+	safe_input({
 		prompt = "Import todos from file: ",
 		default = default_path,
-		completion = "file",
 	}, function(file_path)
 		if not file_path or file_path == "" then
 			vim.notify("Import cancelled", vim.log.levels.INFO)
@@ -604,7 +611,7 @@ create_tag_window = auto_render(function()
 		local cursor = vim.api.nvim_win_get_cursor(tag_win_id)
 		local old_tag = vim.api.nvim_buf_get_lines(tag_buf_id, cursor[1] - 1, cursor[1], false)[1]
 		if old_tag ~= "No tags found" then
-			vim.ui.input({ prompt = "Edit tag: ", default = old_tag }, function(new_tag)
+			safe_input({ prompt = "Edit tag: ", default = old_tag }, function(new_tag)
 				if new_tag and new_tag ~= "" and new_tag ~= old_tag then
 					state.rename_tag(old_tag, new_tag)
 					local tags = state.get_all_tags()
@@ -742,7 +749,7 @@ local function create_search_window()
 	-- If search window exists and is valid, focus on the existing window and return
 	if search_win_id and vim.api.nvim_win_is_valid(search_win_id) then
 		vim.api.nvim_set_current_win(search_win_id)
-		vim.ui.input({ prompt = "Search todos: " }, function(query)
+		safe_input({ prompt = "Search todos: " }, function(query)
 			handle_search_query(query)
 		end)
 		return
@@ -779,7 +786,7 @@ local function create_search_window()
 	})
 
 	-- Create search query pane
-	vim.ui.input({ prompt = "Search todos: " }, function(query)
+	safe_input({ prompt = "Search todos: " }, function(query)
 		handle_search_query(query)
 	end)
 
@@ -827,7 +834,7 @@ local function add_time_estimation()
 	local current_line = vim.api.nvim_win_get_cursor(0)[1]
 	local todo_index = current_line - (state.active_filter and 3 or 1)
 
-	vim.ui.input({
+	safe_input({
 		prompt = "Estimated completion time (e.g., 15m, 2h, 1d, 0.5w): ",
 		default = "",
 	}, function(input)
@@ -1503,7 +1510,7 @@ end
 
 -- Creates a new todo item
 M.new_todo = auto_render(function()
-    vim.ui.input({ prompt = "New to-do: " }, function(input)
+    safe_input({ prompt = "New to-do: " }, function(input)
         -- If user cancelled or provided no input, do nothing
         if not input or input == "" then
             return
