@@ -46,7 +46,18 @@ local notify = {
 -- Auto-render wrapper for functions that modify todos
 local function auto_render(fn)
 	return function(...)
+		-- Store the current window ID before the action
+		local current_win_id = win_id
+		print("DEBUG: auto_render - stored win_id=" .. (current_win_id or "nil"))
+		
 		local result = fn(...)
+		
+		-- Check if win_id was lost and restore it
+		if not win_id and current_win_id and vim.api.nvim_win_is_valid(current_win_id) then
+			print("DEBUG: Restoring lost win_id")
+			win_id = current_win_id
+		end
+		
 		print("DEBUG: auto_render - win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
 		if win_id and vim.api.nvim_win_is_valid(win_id) then
 			print("DEBUG: Calling M.render_todos()")
@@ -1193,7 +1204,7 @@ local function create_window()
 	setup_keymap("delete_todo", M.delete_todo)
 	setup_keymap("delete_completed", M.delete_completed)
 	setup_keymap("close_window", M.close_window)
-  setup_keymap("refresh_todos", M.reload_todos)
+	setup_keymap("refresh_todos", M.reload_todos)
 	setup_keymap("undo_delete", auto_render(function()
 		if state.undo_delete() then
 			notify.success("Todo restored")
@@ -1512,6 +1523,17 @@ function M.reload_todos()
     if M.is_window_open() then
         M.render_todos()
         notify.success("Todo list refreshed")
+    end
+end
+
+-- Force refresh from backend (useful for Todoist sync)
+function M.force_refresh()
+    if config.options.backend == "todoist" then
+        state.load_todos()
+        if M.is_window_open() then
+            M.render_todos()
+            notify.success("Refreshed from Todoist")
+        end
     end
 end
 

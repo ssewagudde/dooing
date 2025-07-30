@@ -222,9 +222,9 @@ function M.set_todo_status(index, target_status)
   if config.options.backend == "todoist" then
     print("DEBUG: Syncing with Todoist...")
     sync_todoist_status(todo, target_status)
-    print("DEBUG: Reloading todos from Todoist...")
-    M.load_todos()
-    print("DEBUG: Todoist sync completed")
+    print("DEBUG: Todoist sync completed - NOT reloading immediately to preserve local state")
+    -- Don't reload immediately as it overwrites our local change
+    -- The change will be reflected on next window open or manual refresh
   else
     print("DEBUG: Saving to local file...")
     save_todos()
