@@ -48,17 +48,27 @@ local function auto_render(fn)
 	return function(...)
 		-- Store the current window ID before the action
 		local current_win_id = win_id
-		print("DEBUG: auto_render - stored win_id=" .. (current_win_id or "nil"))
+		local current_buf_id = buf_id
+		print("DEBUG: auto_render - stored win_id=" .. (current_win_id or "nil") .. ", buf_id=" .. (current_buf_id or "nil"))
 		
 		local result = fn(...)
 		
-		-- Check if win_id was lost and restore it
-		if not win_id and current_win_id and vim.api.nvim_win_is_valid(current_win_id) then
-			print("DEBUG: Restoring lost win_id")
-			win_id = current_win_id
+		-- Try to find the todo window if win_id is lost
+		if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+			print("DEBUG: win_id lost or invalid, searching for todo window...")
+			-- Look for a window with our buffer
+			if current_buf_id and vim.api.nvim_buf_is_valid(current_buf_id) then
+				for _, w in ipairs(vim.api.nvim_list_wins()) do
+					if vim.api.nvim_win_get_buf(w) == current_buf_id then
+						print("DEBUG: Found todo window with id=" .. w)
+						win_id = w
+						break
+					end
+				end
+			end
 		end
 		
-		print("DEBUG: auto_render - win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
+		print("DEBUG: auto_render - final win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
 		if win_id and vim.api.nvim_win_is_valid(win_id) then
 			print("DEBUG: Calling M.render_todos()")
 			M.render_todos()
@@ -1158,6 +1168,8 @@ local function create_window()
 		footer = " [?] for help ",
 		footer_pos = "center",
 	})
+	
+	print("DEBUG: Window created with win_id=" .. (win_id or "nil") .. ", buf_id=" .. (buf_id or "nil"))
 
 	-- Create small keys window with main window position
 	local small_win = create_small_keys_window({

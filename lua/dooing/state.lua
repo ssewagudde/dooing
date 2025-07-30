@@ -165,18 +165,24 @@ end
 -- Centralized Todoist API status synchronization
 local function sync_todoist_status(todo, new_status)
   local api = require("dooing.api.todoist")
+  print("DEBUG: sync_todoist_status - todo.id=" .. (todo.id or "nil") .. ", old_status=" .. (todo.status or "nil") .. ", new_status=" .. (new_status or "nil"))
   
   if new_status == "done" and todo.status ~= "done" then
+    print("DEBUG: Calling api.close_task for todo.id=" .. todo.id)
     api.close_task(todo.id)
   elseif todo.status == "done" and new_status ~= "done" then
+    print("DEBUG: Calling api.reopen_task for todo.id=" .. todo.id)
     api.reopen_task(todo.id)
   end
   
   if new_status == "in_progress" then
+    print("DEBUG: Calling api.set_task_status to in_progress for todo.id=" .. todo.id)
     api.set_task_status(todo.id, "in_progress")
   elseif new_status == "pending" then
+    print("DEBUG: Calling api.set_task_status to pending for todo.id=" .. todo.id)
     api.set_task_status(todo.id, "pending")
   end
+  print("DEBUG: sync_todoist_status completed")
 end
 
 -- Consolidated status management function
