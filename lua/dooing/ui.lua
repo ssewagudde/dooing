@@ -47,8 +47,13 @@ local notify = {
 local function auto_render(fn)
 	return function(...)
 		local result = fn(...)
+		print("DEBUG: auto_render - win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
 		if win_id and vim.api.nvim_win_is_valid(win_id) then
+			print("DEBUG: Calling M.render_todos()")
 			M.render_todos()
+			print("DEBUG: M.render_todos() completed")
+		else
+			print("DEBUG: Skipping render - window not valid")
 		end
 		return result
 	end
@@ -1349,7 +1354,9 @@ end
 
 -- Main function for todos rendering
 function M.render_todos()
+	print("DEBUG: render_todos called, buf_id=" .. (buf_id or "nil"))
 	if not buf_id then
+		print("DEBUG: No buf_id, returning")
 		return
 	end
 

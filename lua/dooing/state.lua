@@ -218,12 +218,17 @@ function M.set_todo_status(index, target_status)
   end
   
   -- Sync with backend
+  print("DEBUG: Backend is: " .. (config.options.backend or "nil"))
   if config.options.backend == "todoist" then
+    print("DEBUG: Syncing with Todoist...")
     sync_todoist_status(todo, target_status)
-    -- Reload todos from Todoist to ensure consistency
+    print("DEBUG: Reloading todos from Todoist...")
     M.load_todos()
+    print("DEBUG: Todoist sync completed")
   else
+    print("DEBUG: Saving to local file...")
     save_todos()
+    print("DEBUG: Local save completed")
   end
   
   return true
