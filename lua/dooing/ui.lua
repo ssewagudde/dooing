@@ -86,13 +86,37 @@ local function auto_render(fn)
 		end
 		
 		print("DEBUG: auto_render end - win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
-		if win_id and vim.api.nvim_win_is_valid(win_id) then
-			print("DEBUG: Calling M.render_todos()")
-			M.render_todos()
-			print("DEBUG: M.render_todos() completed")
-		else
-			print("DEBUG: Skipping render - no valid window")
-		end
+		
+		-- Use vim.schedule to defer the render
+		vim.schedule(function()
+			print("DEBUG: Scheduled render starting...")
+			-- Re-check window validity in the scheduled function
+			if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+				print("DEBUG: Window invalid in schedule, searching...")
+				-- Search for the window again
+				for _, w in ipairs(vim.api.nvim_list_wins()) do
+					local buf = vim.api.nvim_win_get_buf(w)
+					local lines = vim.api.nvim_buf_get_lines(buf, 0, 5, false)
+					for _, line in ipairs(lines) do
+						if line:match("[○◐✓]") then
+							print("DEBUG: Found window in schedule: " .. w)
+							win_id = w
+							buf_id = buf
+							break
+						end
+					end
+					if win_id then break end
+				end
+			end
+			
+			if win_id and vim.api.nvim_win_is_valid(win_id) then
+				print("DEBUG: Calling M.render_todos() in schedule")
+				M.render_todos()
+				print("DEBUG: Scheduled render completed")
+			else
+				print("DEBUG: No valid window found in schedule")
+			end
+		end)
 		return result
 	end
 end
