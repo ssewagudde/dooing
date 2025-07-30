@@ -206,14 +206,7 @@ function M.set_todo_status(index, target_status)
     return true
   end
   
-  -- Sync with backend BEFORE updating local status
-  if config.options.backend == "todoist" then
-    sync_todoist_status(todo, target_status, old_status)
-    -- Don't reload immediately as it overwrites our local change
-    -- The change will be reflected on next window open or manual refresh
-  end
-  
-  -- Update status AFTER sync
+  -- Update status first
   todo.status = target_status
   
   -- Handle completion timestamp
@@ -223,8 +216,11 @@ function M.set_todo_status(index, target_status)
     todo.completed_at = nil
   end
   
-  -- Save locally if not using Todoist
-  if config.options.backend ~= "todoist" then
+  -- Sync with backend AFTER updating local status
+  if config.options.backend == "todoist" then
+    sync_todoist_status(todo, target_status, old_status)
+  else
+    -- Save locally if not using Todoist
     save_todos()
   end
   

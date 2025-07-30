@@ -46,77 +46,39 @@ local notify = {
 -- Auto-render wrapper for functions that modify todos
 local function auto_render(fn)
 	return function(...)
-		-- Store the current window ID before the action
-		local current_win_id = win_id
-		local current_buf_id = buf_id
-		print("DEBUG: auto_render start - win_id=" .. (win_id or "nil") .. ", buf_id=" .. (buf_id or "nil"))
-		
 		local result = fn(...)
 		
-		-- Try to find the todo window if win_id is lost
-		if not win_id or not vim.api.nvim_win_is_valid(win_id) then
-			print("DEBUG: win_id lost, searching...")
-			-- Look for a window with our buffer
-			if current_buf_id and vim.api.nvim_buf_is_valid(current_buf_id) then
-				for _, w in ipairs(vim.api.nvim_list_wins()) do
-					if vim.api.nvim_win_get_buf(w) == current_buf_id then
-						print("DEBUG: Found window by buf_id: " .. w)
-						win_id = w
-						buf_id = current_buf_id
-						break
-					end
-				end
-			else
-				-- Try to find any window with dooing content
-				for _, w in ipairs(vim.api.nvim_list_wins()) do
-					local buf = vim.api.nvim_win_get_buf(w)
+		-- Find the dooing window if we don't have valid IDs
+		local current_win_id = win_id
+		local current_buf_id = buf_id
+		
+		if not (current_win_id and vim.api.nvim_win_is_valid(current_win_id)) then
+			-- Look for a window with dooing content
+			for _, w in ipairs(vim.api.nvim_list_wins()) do
+				local buf = vim.api.nvim_win_get_buf(w)
+				if vim.api.nvim_buf_is_valid(buf) then
 					local lines = vim.api.nvim_buf_get_lines(buf, 0, 5, false)
-					-- Check if this looks like a dooing buffer
+					-- Check if this looks like a dooing buffer by looking for todo icons
 					for _, line in ipairs(lines) do
-						if line:match("[○◐✓]") then
-							print("DEBUG: Found window by content: " .. w)
+						if line:match("[○◐✓]") or line:match("to%-dos") then
+							current_win_id = w
+							current_buf_id = buf
+							-- Update the module variables
 							win_id = w
 							buf_id = buf
 							break
 						end
 					end
-					if win_id then break end
+					if current_win_id then break end
 				end
 			end
 		end
 		
-		print("DEBUG: auto_render end - win_id=" .. (win_id or "nil") .. ", valid=" .. tostring(win_id and vim.api.nvim_win_is_valid(win_id)))
+		-- Render if we have a valid window
+		if current_win_id and vim.api.nvim_win_is_valid(current_win_id) and current_buf_id and vim.api.nvim_buf_is_valid(current_buf_id) then
+			M.render_todos()
+		end
 		
-		-- Use vim.schedule to defer the render
-		vim.schedule(function()
-			print("DEBUG: Scheduled render starting...")
-			-- Re-check window validity in the scheduled function
-			if not win_id or not vim.api.nvim_win_is_valid(win_id) then
-				print("DEBUG: Window invalid in schedule, searching...")
-				-- Search for the window again
-				for _, w in ipairs(vim.api.nvim_list_wins()) do
-					local buf = vim.api.nvim_win_get_buf(w)
-					local lines = vim.api.nvim_buf_get_lines(buf, 0, 5, false)
-					for _, line in ipairs(lines) do
-						if line:match("[○◐✓]") then
-							print("DEBUG: Found window in schedule: " .. w)
-							win_id = w
-							buf_id = buf
-							break
-						end
-					end
-					if win_id then break end
-				end
-			end
-			
-			if win_id and vim.api.nvim_win_is_valid(win_id) then
-				print("DEBUG: Calling M.render_todos() in schedule")
-				M.render_todos()
-				print("DEBUG: Scheduled render completed")
-			else
-				print("DEBUG: No valid window found in schedule")
-			end
-		end)
 		return result
 	end
 end
@@ -302,7 +264,10 @@ edit_todo = auto_render(function()
 			local task = state.todos[todo_index]
 			if api.update_task(task.id, { content = input }) then
 				state.load_todos()
-				-- Auto-render will handle this
+				-- Manually trigger UI update since we're in a callback
+				if win_id and vim.api.nvim_win_is_valid(win_id) and buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+					M.render_todos()
+				end
 			else
 				notify.error("Failed to update remote task")
 				return
@@ -310,7 +275,10 @@ edit_todo = auto_render(function()
 		else
 			state.todos[todo_index].text = input
 			state.save_todos()
-			-- Auto-render will handle this
+			-- Manually trigger UI update since we're in a callback
+			if win_id and vim.api.nvim_win_is_valid(win_id) and buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+				M.render_todos()
+			end
 		end
 		-- Keep cursor on the edited todo after re-render
 		for display_line, idx in pairs(line_to_todo) do
@@ -925,7 +893,7 @@ function M.parse_time_estimation(time_str)
 end
 
 -- Add estimated completion time to todo
-local add_time_estimation = auto_render(function()
+local function add_time_estimation()
 	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
 	local todo_index = line_to_todo[current_line]
 	if not todo_index then
@@ -942,14 +910,17 @@ local add_time_estimation = auto_render(function()
 			if hours then
 				state.todos[todo_index].estimated_hours = hours
 				state.save_todos()
+				-- Manually trigger UI update since we're in a callback
+				if win_id and vim.api.nvim_win_is_valid(win_id) and buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+					M.render_todos()
+				end
 				notify.success("Time estimation added successfully")
-				-- Auto-render will handle the UI update
 			else
 				notify.error("Error adding time estimation: " .. (err or "Unknown error"))
 			end
 		end
 	end)
-end)
+end
 
 -- Remove estimated completion time from todo
 local remove_time_estimation = auto_render(function()
@@ -971,7 +942,7 @@ local remove_time_estimation = auto_render(function()
 end)
 
 -- Add due date to to-do in the format MM/DD/YYYY
-local add_due_date = auto_render(function()
+local function add_due_date()
 	local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
 	local todo_index = line_to_todo[current_line]
 	if not todo_index then
@@ -984,14 +955,17 @@ local add_due_date = auto_render(function()
 			local success, err = state.add_due_date(todo_index, date_str)
 
 			if success then
-				-- Auto-render will handle the UI update
+				-- Manually trigger UI update since we're in a callback
+				if win_id and vim.api.nvim_win_is_valid(win_id) and buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+					M.render_todos()
+				end
 				notify.success("Due date added successfully")
 			else
 				notify.error("Error adding due date: " .. (err or "Unknown error"))
 			end
 		end
 	end, { language = "en" })
-end)
+end
 
 -- Remove due date from to-do
 local remove_due_date = auto_render(function()
@@ -1272,10 +1246,7 @@ local function create_window()
 	-- Setup keymaps
 	local function setup_keymap(key_option, callback)
 		if config.options.keymaps[key_option] then
-			print("DEBUG: Setting up keymap " .. key_option .. " = " .. config.options.keymaps[key_option])
 			vim.keymap.set("n", config.options.keymaps[key_option], callback, { buffer = buf_id, nowait = true })
-		else
-			print("DEBUG: No keymap found for " .. key_option)
 		end
 	end
 
@@ -1292,18 +1263,6 @@ local function create_window()
 	setup_keymap("delete_completed", M.delete_completed)
 	setup_keymap("close_window", M.close_window)
 	setup_keymap("refresh_todos", M.reload_todos)
-	
-	-- Debug: Add test keymaps to verify keybinding works
-	vim.keymap.set("n", "Z", function()
-		print("DEBUG: Z key pressed - calling M.complete_todo directly")
-		M.complete_todo()
-	end, { buffer = buf_id, nowait = true })
-	
-	-- Debug: Add explicit X keymap with debugging
-	vim.keymap.set("n", "X", function()
-		print("DEBUG: X key pressed explicitly!")
-		M.complete_todo()
-	end, { buffer = buf_id, nowait = true, desc = "Complete todo (debug)" })
 	setup_keymap("undo_delete", auto_render(function()
 		if state.undo_delete() then
 			notify.success("Todo restored")
@@ -1464,17 +1423,8 @@ end
 
 -- Main function for todos rendering
 function M.render_todos()
-	if not buf_id then
+	if not buf_id or not vim.api.nvim_buf_is_valid(buf_id) then
 		return
-	end
-	
-	print("DEBUG: render_todos - total todos: " .. #state.todos)
-	-- Debug: show status of first few todos
-	for i = 1, math.min(3, #state.todos) do
-		local todo = state.todos[i]
-		if todo then
-			print("DEBUG: Todo " .. i .. ": " .. (todo.text or "nil") .. " - status: " .. (todo.status or "nil"))
-		end
 	end
 
 	-- Create the buffer
@@ -1741,7 +1691,10 @@ M.new_todo = auto_render(function()
 					-- Add todo with priority names
 					local priorities_to_add = #selected_priority_names > 0 and selected_priority_names or nil
 					state.add_todo(input, priorities_to_add)
-					-- Auto-render will handle this
+					-- Manually trigger UI update since we're in a nested callback
+					if win_id and vim.api.nvim_win_is_valid(win_id) and buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+						M.render_todos()
+					end
 
 					-- Make sure we're focusing on the main window
 					if win_id and vim.api.nvim_win_is_valid(win_id) then
@@ -1784,7 +1737,10 @@ M.new_todo = auto_render(function()
 			else
 				-- If prioritization is disabled, just add the todo without priority
 				state.add_todo(input)
-				-- Auto-render will handle this
+				-- Manually trigger UI update since we're in a nested callback
+				if win_id and vim.api.nvim_win_is_valid(win_id) and buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+					M.render_todos()
+				end
 				
 				-- Make sure we're focusing on the main window
 				if win_id and vim.api.nvim_win_is_valid(win_id) then
@@ -1821,8 +1777,6 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 		return
 	end
 	
-	print("DEBUG: execute_todo_action - todo before: " .. (state.todos[todo_index].text or "nil") .. " - status: " .. (state.todos[todo_index].status or "nil"))
-	
 	-- Optional validation before action
 	if validation_fn then
 		local valid, msg = validation_fn(state.todos[todo_index])
@@ -1834,7 +1788,6 @@ local function execute_todo_action(action_name, action_fn, success_msg, validati
 	
 	-- Execute action (auto-render will handle re-rendering)
 	local success = action_fn(todo_index)
-	print("DEBUG: execute_todo_action - todo after: " .. (state.todos[todo_index].text or "nil") .. " - status: " .. (state.todos[todo_index].status or "nil"))
 	if success and success_msg then
 		notify.success(success_msg)
 	end
@@ -1857,14 +1810,12 @@ end)
 
 -- Complete todo directly (Shift+X)
 M.complete_todo = auto_render(function()
-	print("DEBUG: complete_todo called")
 	execute_todo_action("complete", state.complete_todo, "Todo marked as completed", function(todo)
 		if todo.status == "done" then
 			return false, "Todo is already completed"
 		end
 		return true
 	end)
-	print("DEBUG: complete_todo finished")
 end)
 
 -- Deletes the current todo item
